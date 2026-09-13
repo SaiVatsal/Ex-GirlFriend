@@ -1,5 +1,5 @@
 # tests/test_chat.py
-"""Tests for ParhiCLI: prompt formatting, stop-token logic, response gen."""
+"""Tests for ParhiCLI: prompt formatting, stop-token logic, response gen.""" # 
 import os
 import tempfile
 import torch

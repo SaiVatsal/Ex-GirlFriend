@@ -876,10 +876,22 @@ def main() -> None:
         help="Launch Parhi as an always-on background service.",
     )
     parser.add_argument(
-        "--install",
+        "--cli",
         action="store_true",
         default=False,
-        help="Register Parhi as a Windows startup application.",
+        help="Run in classic terminal REPL mode instead of the graphical neural interface.",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Port for the neural GUI interface server (default: 8000).",
+    )
+    parser.add_argument(
+        "--no-browser",
+        action="store_true",
+        default=False,
+        help="Start GUI server without auto-opening the desktop window.",
     )
     args = parser.parse_args()
 
@@ -892,6 +904,11 @@ def main() -> None:
     if args.background:
         from parhi_service import run_service
         run_service()
+        return
+
+    if not args.cli:
+        from parhi_gui_server import run_gui
+        run_gui(port=args.port, open_window=not args.no_browser)
         return
 
     # Build config overrides from CLI args

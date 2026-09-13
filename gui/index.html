@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Parhi — Synaptic Neural AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Ambient Cosmic Background Glow -->
+  <div class="ambient-glow glow-1"></div>
+  <div class="ambient-glow glow-2"></div>
+  <div class="ambient-glow glow-3"></div>
+
+  <!-- Top Navigation & Controls Header -->
+  <header class="top-header">
+    <div class="brand-area">
+      <div class="neural-pulse-dot"></div>
+      <div class="brand-text">
+        <span class="brand-name">PARHI</span>
+        <span class="brand-version">v3.0 // NEURAL CORTEX</span>
+      </div>
+    </div>
+
+    <div class="system-pills">
+      <div class="pill status-pill" id="system-status-pill">
+        <span class="dot live"></span>
+        <span class="pill-text" id="status-label">Cortex Active</span>
+      </div>
+      <div class="pill mood-pill" id="mood-pill">
+        <span class="pill-icon" id="mood-icon">💫</span>
+        <span class="pill-text" id="mood-text">Attentive</span>
+      </div>
+      <button class="sound-toggle-btn" id="sound-toggle" title="Toggle Sound Effects">
+        <span class="sound-icon" id="sound-icon">🔊</span>
+        <span class="sound-label" id="sound-label">Audio: ON</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main 3-Column Workspace -->
+  <main class="workspace-grid">
+    <!-- LEFT COLUMN: Conversation Dialogue & Thoughts -->
+    <section class="panel chat-panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <span class="title-icon">💬</span>
+          <span>Dialogue Stream</span>
+        </div>
+        <div class="chat-badges">
+          <span class="badge" id="message-counter">0 messages</span>
+          <button class="icon-btn-tiny" id="clear-chat-btn" title="Clear Chat Display">🗑️</button>
+        </div>
+      </div>
+
+      <div class="chat-history" id="chat-history">
+        <!-- Initial Welcome Message -->
+        <div class="message-bubble parhi-bubble welcome-bubble">
+          <div class="bubble-avatar">P</div>
+          <div class="bubble-content">
+            <div class="bubble-author">
+              <span class="author-name">Parhi</span>
+              <span class="author-tag">Neural Companion</span>
+            </div>
+            <p class="bubble-text">
+              Hello! I'm Parhi. My neural network is active, listening, and ready to assist you. What are we exploring today?
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Typing Indicator -->
+      <div class="typing-indicator" id="typing-indicator" style="display: none;">
+        <span class="typing-text">Parhi is firing synaptic thoughts...</span>
+        <div class="typing-dots">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+
+      <!-- Quick Chips Bar -->
+      <div class="quick-chips">
+        <button class="chip" data-text="What can you do?">What can you do?</button>
+        <button class="chip" data-text="Open camera">Open Camera 📷</button>
+        <button class="chip" data-text="What is my battery status?">Battery ⚡</button>
+        <button class="chip" data-text="Tell me a fascinating science concept">Science Concept 🔬</button>
+      </div>
+    </section>
+
+    <!-- CENTER COLUMN: Biological Brainbow Neural Canvas & Mic Nucleus -->
+    <section class="panel cortex-panel">
+      <div class="cortex-wrapper">
+        <!-- High-Performance Brainbow Canvas -->
+        <canvas id="neural-canvas"></canvas>
+
+        <!-- Dynamic Overlay Controls -->
+        <div class="cortex-overlay">
+          <div class="cortex-state-badge" id="cortex-state-badge">
+            <span class="state-dot"></span>
+            <span id="cortex-state-text">Resting Membrane Potential</span>
+          </div>
+
+          <!-- Central Acoustic Mic Nucleus -->
+          <div class="mic-nucleus-container">
+            <div class="synaptic-wave-ring ring-1"></div>
+            <div class="synaptic-wave-ring ring-2"></div>
+            <div class="synaptic-wave-ring ring-3"></div>
+
+            <button class="mic-button" id="mic-button" title="Click to Speak or say 'Parhi'">
+              <div class="mic-glow-inner"></div>
+              <svg class="mic-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                <line x1="12" y1="19" x2="12" y2="23"></line>
+                <line x1="8" y1="23" x2="16" y2="23"></line>
+              </svg>
+            </button>
+          </div>
+
+          <div class="mic-caption" id="mic-caption">Click to Speak or say <span class="highlight-word">"Parhi"</span></div>
+          
+          <!-- Live Transcript Bar -->
+          <div class="live-transcript" id="live-transcript">
+            <span class="transcript-prefix">Listening:</span>
+            <span class="transcript-content" id="transcript-content">...</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT COLUMN: System Telemetry, Vitals & Hardware Commands -->
+    <section class="panel vitals-panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <span class="title-icon">⚡</span>
+          <span>Cortex Telemetry</span>
+        </div>
+      </div>
+
+      <div class="vitals-scroll-content">
+        <!-- Battery Status Card -->
+        <div class="vital-card">
+          <div class="vital-card-header">
+            <span class="vital-name">Battery Power</span>
+            <span class="vital-val" id="battery-val">--%</span>
+          </div>
+          <div class="progress-bar-container">
+            <div class="progress-bar" id="battery-bar" style="width: 100%;"></div>
+          </div>
+          <div class="vital-sub" id="battery-status-sub">Detecting power source...</div>
+        </div>
+
+        <!-- WiFi / Network Card -->
+        <div class="vital-card">
+          <div class="vital-card-header">
+            <span class="vital-name">Network Connection</span>
+            <span class="vital-val" id="wifi-val">--%</span>
+          </div>
+          <div class="vital-meta">
+            <span class="meta-label">SSID:</span>
+            <span class="meta-val" id="wifi-ssid">Connecting...</span>
+          </div>
+          <div class="vital-meta">
+            <span class="meta-label">Local IP:</span>
+            <span class="meta-val" id="ip-val">--.--.--.--</span>
+          </div>
+        </div>
+
+        <!-- Parhi Neuro-Bond & Memory -->
+        <div class="vital-card">
+          <div class="vital-card-header">
+            <span class="vital-name">Relationship Bond</span>
+            <span class="vital-val" id="bond-val">55/100</span>
+          </div>
+          <div class="progress-bar-container">
+            <div class="progress-bar bond-bar" id="bond-bar" style="width: 55%;"></div>
+          </div>
+          <div class="vital-sub" id="bond-sub">Friendly &amp; Attentive</div>
+        </div>
+
+        <!-- Quick JARVIS Hardware Triggers -->
+        <div class="actions-section">
+          <div class="actions-title">Hardware Triggers</div>
+          <div class="actions-grid">
+            <button class="action-btn" id="btn-camera" title="Open Windows Camera">
+              <span class="btn-icon">📷</span>
+              <span class="btn-label">Open Camera</span>
+            </button>
+            <button class="action-btn" id="btn-screen" title="Describe Active Screen">
+              <span class="btn-icon">👁️</span>
+              <span class="btn-label">Screen Vision</span>
+            </button>
+            <button class="action-btn" id="btn-vol-up" title="Increase System Volume">
+              <span class="btn-icon">🔊</span>
+              <span class="btn-label">Volume Up</span>
+            </button>
+            <button class="action-btn" id="btn-vol-down" title="Decrease System Volume">
+              <span class="btn-icon">🔉</span>
+              <span class="btn-label">Volume Down</span>
+            </button>
+            <button class="action-btn" id="btn-music" title="Launch Music Player">
+              <span class="btn-icon">🎵</span>
+              <span class="btn-label">Play Music</span>
+            </button>
+            <button class="action-btn danger-btn" id="btn-lock" title="Lock Workstation">
+              <span class="btn-icon">🔒</span>
+              <span class="btn-label">Lock PC</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Bottom Interactive Input Dock -->
+  <footer class="input-dock">
+    <div class="input-container">
+      <input type="text" id="user-input" placeholder="Type a message or instruction for Parhi..." autocomplete="off">
+      <button class="send-btn" id="send-btn" title="Send Message">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="22" y1="2" x2="11" y2="13"></line>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+        </svg>
+      </button>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

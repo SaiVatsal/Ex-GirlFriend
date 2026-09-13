@@ -18,6 +18,14 @@
       "confidence": 0.8,
       "timestamp": 1789225350.3355353,
       "source_message": "i love you"
+    },
+    {
+      "category": "preference",
+      "key": "likes",
+      "value": "you",
+      "confidence": 0.8,
+      "timestamp": 1789295240.9072185,
+      "source_message": "i love you"
     }
   ],
   "past_sessions": [
@@ -30,5 +38,5 @@
       "highlights": []
     }
   ],
-  "relationship_score": 53.08
+  "relationship_score": 54.62
 }
