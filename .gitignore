@@ -6,3 +6,5 @@ test_memory.json
 .pytest_cache/
 voice_logs/
 .venv/
+gui/assets/*.mp4
+*.mp4

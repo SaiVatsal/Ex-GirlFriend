@@ -1022,7 +1022,191 @@ class SpeechManager {
 }
 
 // ============================================================================
-// 4. WEBSOCKET CLIENT & APP CONTROLLER
+// 4. NATURAL VOICE SPEECH SYNTHESIZER (SPEAKS RESPONSES ALOUD)
+// ============================================================================
+
+class VoiceSpeaker {
+  constructor(soundFX, onSpeakStart, onSpeakEnd) {
+    this.soundFX = soundFX;
+    this.onSpeakStart = onSpeakStart;
+    this.onSpeakEnd = onSpeakEnd;
+    this.synth = window.speechSynthesis || null;
+    this.voice = null;
+    this.isSpeaking = false;
+    this.initVoices();
+  }
+
+  initVoices() {
+    if (!this.synth) return;
+    const loadVoices = () => {
+      const voices = this.synth.getVoices();
+      if (!voices || !voices.length) return;
+      // Prefer warm, natural English female voices
+      this.voice = voices.find(v => 
+        (v.name.includes("Zira") || v.name.includes("Samantha") || v.name.includes("Google UK English Female") || v.name.includes("Natural") || v.name.includes("Jenny") || v.name.includes("Aria")) && v.lang.startsWith("en")
+      ) || voices.find(v => v.lang.startsWith("en") && (v.name.toLowerCase().includes("female") || v.name.includes("Zira")))
+        || voices.find(v => v.lang.startsWith("en"))
+        || voices[0];
+    };
+
+    loadVoices();
+    if (this.synth.onvoiceschanged !== undefined) {
+      this.synth.onvoiceschanged = loadVoices;
+    }
+  }
+
+  speak(text) {
+    if (!this.synth || !this.soundFX.enabled) return;
+
+    // Clean text for spoken audio: strip code blocks, markdown asterisks, urls, backticks
+    let cleanText = text
+      .replace(/```[\s\S]*?```/g, " Here is the code. ")
+      .replace(/`([^`]+)`/g, "$1")
+      .replace(/https?:\/\/\S+/g, "link")
+      .replace(/[#*_~>]/g, "")
+      .replace(/\[\+\]|\[✓\]|\[✗\]|\[!\]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    if (!cleanText) return;
+
+    // Cancel previous speech if still playing
+    this.synth.cancel();
+
+    const utter = new SpeechSynthesisUtterance(cleanText);
+    if (this.voice) utter.voice = this.voice;
+    utter.rate = 1.02;
+    utter.pitch = 1.05;
+
+    utter.onstart = () => {
+      this.isSpeaking = true;
+      if (this.onSpeakStart) this.onSpeakStart();
+    };
+
+    utter.onend = () => {
+      this.isSpeaking = false;
+      if (this.onSpeakEnd) this.onSpeakEnd();
+    };
+
+    utter.onerror = (e) => {
+      console.warn("Speech synthesis error:", e);
+      this.isSpeaking = false;
+      if (this.onSpeakEnd) this.onSpeakEnd();
+    };
+
+    this.synth.speak(utter);
+  }
+
+  stop() {
+    if (this.synth) {
+      this.synth.cancel();
+      this.isSpeaking = false;
+      if (this.onSpeakEnd) this.onSpeakEnd();
+    }
+  }
+}
+
+// ============================================================================
+// 5. IN-UI LIVE CAMERA VIEWFINDER MANAGER
+// ============================================================================
+
+class CameraManager {
+  constructor(app) {
+    this.app = app;
+    this.stream = null;
+    this.container = document.getElementById("camera-viewport-container");
+    this.videoEl = document.getElementById("webcam-stream");
+    this.closeBtn = document.getElementById("camera-close-btn");
+    this.switchOsBtn = document.getElementById("camera-switch-os-btn");
+    this.snapBtn = document.getElementById("camera-snap-btn");
+    this.isOpen = false;
+
+    this.bindEvents();
+  }
+
+  bindEvents() {
+    this.closeBtn?.addEventListener("click", () => this.closeCamera());
+    this.switchOsBtn?.addEventListener("click", () => {
+      this.app.soundFX.playActionBeep();
+      this.app.sendWebSocketMessage({
+        type: "system_command",
+        command: "camera",
+        target: "camera"
+      });
+      this.app.appendMessage("parhi", "Opening native Windows Camera application window.");
+    });
+    this.snapBtn?.addEventListener("click", () => this.captureSnapshot());
+  }
+
+  async openCamera() {
+    if (!this.container || !this.videoEl) return;
+    this.app.soundFX.playActionBeep();
+    this.container.style.display = "flex";
+    this.isOpen = true;
+
+    try {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        this.stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        });
+        this.videoEl.srcObject = this.stream;
+        await this.videoEl.play();
+        this.app.appendMessage("parhi", "📷 Live Optical Camera Viewfinder is active right inside your interface.");
+        if (this.app.speaker) {
+          this.app.speaker.speak("Your optical camera stream is now active inside the cortex interface.");
+        }
+      } else {
+        throw new Error("getUserMedia not supported");
+      }
+    } catch (err) {
+      console.warn("Camera device access error:", err);
+      this.app.appendMessage("parhi", "Could not capture in-browser webcam stream. Opening Windows Camera app directly...");
+      this.app.sendWebSocketMessage({
+        type: "system_command",
+        command: "camera",
+        target: "camera"
+      });
+      this.container.style.display = "none";
+      this.isOpen = false;
+    }
+  }
+
+  captureSnapshot() {
+    if (!this.videoEl || !this.stream) return;
+    this.app.soundFX.playClick();
+
+    const snapCanvas = document.createElement("canvas");
+    snapCanvas.width = this.videoEl.videoWidth || 640;
+    snapCanvas.height = this.videoEl.videoHeight || 480;
+    const sCtx = snapCanvas.getContext("2d");
+    sCtx.drawImage(this.videoEl, 0, 0);
+
+    this.app.appendMessage("user", "📸 [Camera Optical Snapshot Captured]");
+    this.app.soundFX.playResponseShimmer();
+    if (this.app.canvas) this.app.canvas.triggerLearningEvent("Visual Analysis");
+
+    // Request Parhi's vision analysis
+    this.app.sendWebSocketMessage({
+      type: "chat_message",
+      text: "I just captured a camera snapshot. What do you see in front of you?"
+    });
+  }
+
+  closeCamera() {
+    if (this.stream) {
+      this.stream.getTracks().forEach(track => track.stop());
+      this.stream = null;
+    }
+    if (this.videoEl) this.videoEl.srcObject = null;
+    if (this.container) this.container.style.display = "none";
+    this.isOpen = false;
+    this.app.soundFX.playClick();
+  }
+}
+
+// ============================================================================
+// 6. WEBSOCKET CLIENT & APP CONTROLLER
 // ============================================================================
 
 class ParhiApp {
@@ -1030,16 +1214,55 @@ class ParhiApp {
     this.soundFX = new SoundFX();
     this.canvas = null;
     this.speech = null;
+    this.speaker = null;
+    this.camera = null;
     this.ws = null;
     this.messageCount = 0;
     this.currentStreamingBubble = null;
 
     this.initDOM();
     this.initCanvas();
+    this.initVoiceSpeaker();
     this.initSpeech();
+    this.initCamera();
+    this.initAmbientVideo();
     this.initWebSocket();
     this.initQuickChips();
     this.initHardwareActions();
+  }
+
+  initVoiceSpeaker() {
+    this.speaker = new VoiceSpeaker(
+      this.soundFX,
+      () => {
+        // When Parhi starts speaking aloud
+        if (this.canvas) {
+          this.canvas.setState("speaking");
+          this.canvas.sensoryVolume = 0.85;
+        }
+      },
+      () => {
+        // When Parhi finishes speaking
+        if (this.canvas) {
+          this.canvas.setState("idle");
+          this.canvas.sensoryVolume = 0;
+        }
+      }
+    );
+  }
+
+  initCamera() {
+    this.camera = new CameraManager(this);
+  }
+
+  initAmbientVideo() {
+    const vid = document.getElementById("cortex-ambient-video");
+    if (vid) {
+      vid.muted = true;
+      vid.play().catch(e => {
+        console.log("Ambient video awaiting user interaction:", e);
+      });
+    }
   }
 
   initDOM() {
@@ -1065,6 +1288,7 @@ class ParhiApp {
     // Clear chat
     this.clearChatBtn?.addEventListener("click", () => {
       this.soundFX.playClick();
+      if (this.speaker) this.speaker.stop();
       if (this.chatHistory) {
         this.chatHistory.innerHTML = `
           <div class="message-bubble parhi-bubble welcome-bubble">
@@ -1086,6 +1310,9 @@ class ParhiApp {
     // Sound toggle
     this.soundToggleBtn?.addEventListener("click", () => {
       const isEnabled = this.soundFX.toggleSound();
+      if (!isEnabled && this.speaker) {
+        this.speaker.stop();
+      }
       if (this.soundIcon) this.soundIcon.innerText = isEnabled ? "🔊" : "🔇";
       if (this.soundLabel) this.soundLabel.innerText = isEnabled ? "Audio: ON" : "Audio: MUTE";
       this.soundFX.playClick();
@@ -1170,8 +1397,15 @@ class ParhiApp {
   }
 
   initHardwareActions() {
+    // Camera action button directly activates in-UI viewfinder!
+    const btnCamera = document.getElementById("btn-camera");
+    btnCamera?.addEventListener("click", () => {
+      if (this.camera) {
+        this.camera.openCamera();
+      }
+    });
+
     const actions = [
-      { id: "btn-camera", cmd: "camera", target: "camera" },
       { id: "btn-screen", cmd: "screen", target: "screen" },
       { id: "btn-vol-up", cmd: "volume_up", target: "up" },
       { id: "btn-vol-down", cmd: "volume_down", target: "down" },
@@ -1201,6 +1435,23 @@ class ParhiApp {
     this.soundFX.playSendWhoosh();
     this.appendMessage("user", text);
     this.userInput.value = "";
+
+    // Check if user is requesting camera directly
+    const lower = text.toLowerCase();
+    if (
+      lower.includes("open camera") ||
+      lower.includes("open the camera") ||
+      lower.includes("start camera") ||
+      lower.includes("turn on camera") ||
+      lower.includes("turn on webcam") ||
+      lower.includes("webcam") ||
+      lower.includes("see me") ||
+      lower.includes("look at me")
+    ) {
+      if (this.camera) {
+        this.camera.openCamera();
+      }
+    }
 
     // Trigger biological canvas reaction
     if (this.canvas) {
@@ -1239,6 +1490,11 @@ class ParhiApp {
         this.soundFX.playResponseShimmer();
         this.appendMessage("parhi", msg.text, msg.thinking);
 
+        // SPEAK ALOUD! Natural speech synthesis
+        if (this.speaker) {
+          this.speaker.speak(msg.text);
+        }
+
         if (this.canvas) {
           // If response contained learning or tool use, trigger neuroplastic burst
           if (msg.learned || (msg.thinking && msg.thinking.length > 50)) {
@@ -1257,6 +1513,9 @@ class ParhiApp {
       case "command_feedback":
         this.appendMessage("parhi", `⚡ ${msg.message}`);
         this.soundFX.playActionBeep();
+        if (this.speaker) {
+          this.speaker.speak(msg.message);
+        }
         break;
     }
   }
@@ -1368,3 +1627,4 @@ class ParhiApp {
 window.addEventListener("DOMContentLoaded", () => {
   window.parhiApp = new ParhiApp();
 });
+

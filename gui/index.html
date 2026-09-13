@@ -92,8 +92,40 @@
     <!-- CENTER COLUMN: Biological Brainbow Neural Canvas & Mic Nucleus -->
     <section class="panel cortex-panel">
       <div class="cortex-wrapper">
+        <!-- Ambient 8K Neural Cortex Video Layer -->
+        <video id="cortex-ambient-video" class="cortex-ambient-video" autoplay loop muted playsinline>
+          <source src="assets/260163.mp4" type="video/mp4">
+        </video>
+
         <!-- High-Performance Brainbow Canvas -->
         <canvas id="neural-canvas"></canvas>
+
+        <!-- Live In-UI Camera Viewfinder Frame -->
+        <div class="camera-viewport-container" id="camera-viewport-container" style="display: none;">
+          <div class="camera-viewport-header">
+            <div class="camera-title">
+              <span class="camera-live-dot"></span>
+              <span>Live Synaptic Optical Stream</span>
+            </div>
+            <div class="camera-controls-top">
+              <button class="camera-btn-sm" id="camera-switch-os-btn" title="Open in External Windows Camera App">↗ Windows App</button>
+              <button class="camera-btn-sm camera-close-btn" id="camera-close-btn" title="Close Camera Viewfinder">✕ Close</button>
+            </div>
+          </div>
+          <div class="camera-video-frame">
+            <video id="webcam-stream" autoplay playsinline muted></video>
+            <div class="camera-scanlines"></div>
+            <div class="camera-corner corner-tl"></div>
+            <div class="camera-corner corner-tr"></div>
+            <div class="camera-corner corner-bl"></div>
+            <div class="camera-corner corner-br"></div>
+          </div>
+          <div class="camera-viewport-footer">
+            <button class="camera-action-btn" id="camera-snap-btn">
+              📸 Snapshot &amp; Analyze with Parhi
+            </button>
+          </div>
+        </div>
 
         <!-- Dynamic Overlay Controls -->
         <div class="cortex-overlay">
