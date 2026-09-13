@@ -20,6 +20,15 @@
       "source_message": "i love you"
     }
   ],
-  "past_sessions": [],
+  "past_sessions": [
+    {
+      "date": "2026-09-13 15:51",
+      "duration_minutes": 0.2,
+      "message_count": 1,
+      "topics_discussed": [],
+      "overall_mood": "neutral",
+      "highlights": []
+    }
+  ],
   "relationship_score": 53.08
 }
