@@ -450,9 +450,10 @@ body {
    ========================================================================== */
 .cortex-panel {
   position: relative;
-  background: radial-gradient(circle at 50% 50%, rgba(12, 16, 28, 0.6), rgba(4, 6, 10, 0.96)), url('brainbow_bg.jpg') center/cover no-repeat;
-  border: 1px solid rgba(168, 85, 247, 0.25);
-  box-shadow: 0 0 40px rgba(168, 85, 247, 0.08) inset;
+  background: #04060a;
+  border: 1px solid rgba(168, 85, 247, 0.35);
+  box-shadow: 0 0 40px rgba(168, 85, 247, 0.15) inset;
+  overflow: hidden;
 }
 
 .cortex-wrapper {
@@ -462,6 +463,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: hidden;
 }
 
 #neural-canvas {
@@ -470,7 +472,8 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 1;
+  z-index: 2;
+  pointer-events: none;
 }
 
 .cortex-overlay {
@@ -479,7 +482,7 @@ body {
   left: 0;
   width: 100%;
   height: 100%;
-  z-index: 2;
+  z-index: 3;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -912,11 +915,10 @@ body {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  z-index: 0;
+  z-index: 1;
   pointer-events: none;
-  opacity: 0.55;
-  mix-blend-mode: screen;
-  filter: contrast(1.15) brightness(1.1);
+  opacity: 0.95;
+  filter: contrast(1.08) brightness(1.02);
   transition: opacity 0.5s ease;
 }
 

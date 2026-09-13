@@ -739,9 +739,8 @@ class BrainbowCanvas {
     const render = (time) => {
       const sec = time * 0.001;
       
-      // Clean frame with slight persistence for motion phosphor trails
-      this.ctx.fillStyle = "rgba(6, 8, 16, 0.32)";
-      this.ctx.fillRect(0, 0, this.width, this.height);
+      // Transparent clearing: ensures the 4K neural tunnel video remains 100% visible beneath the firing neurons
+      this.ctx.clearRect(0, 0, this.width, this.height);
 
       // 1. Draw Extracellular Matrix & Floating Vesicles
       this.drawVesicles();
@@ -1259,9 +1258,22 @@ class ParhiApp {
     const vid = document.getElementById("cortex-ambient-video");
     if (vid) {
       vid.muted = true;
-      vid.play().catch(e => {
-        console.log("Ambient video awaiting user interaction:", e);
-      });
+      vid.defaultMuted = true;
+      vid.playsInline = true;
+      vid.setAttribute("playsinline", "");
+      vid.setAttribute("muted", "");
+      vid.setAttribute("loop", "");
+      vid.setAttribute("autoplay", "");
+
+      const tryPlay = () => {
+        vid.play().catch(e => {
+          console.log("Ambient video waiting for interaction:", e);
+        });
+      };
+
+      tryPlay();
+      document.addEventListener("click", tryPlay, { once: true });
+      document.addEventListener("keydown", tryPlay, { once: true });
     }
   }
 
