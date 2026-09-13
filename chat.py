@@ -876,6 +876,12 @@ def main() -> None:
         help="Launch Parhi as an always-on background service.",
     )
     parser.add_argument(
+        "--install",
+        action="store_true",
+        default=False,
+        help="Register Parhi as a Windows startup application.",
+    )
+    parser.add_argument(
         "--cli",
         action="store_true",
         default=False,
