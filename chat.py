@@ -1,9 +1,10 @@
 # chat.py
-"""Prarthana-GPT v2.0 — Humanized, Emotionally Intelligent Chat Engine.
+"""Parhi-GPT v3.0 — JARVIS-Style Humanized AI Companion.
 
 Usage:
     python chat.py [--checkpoint PATH] [--device DEVICE] [--voice]
                    [--screen] [--no-stream] [--no-thinking] [--api-brain]
+                   [--background] [--install]
 
 The fully integrated chat experience with:
   - Emotion detection & empathetic responses
@@ -17,6 +18,8 @@ The fully integrated chat experience with:
   - Voice conversation (optional)
   - Hybrid local + API intelligence (optional)
   - Conversation analytics dashboard
+  - JARVIS-style system commands (camera, apps, volume, etc.)
+  - Background service with wake word detection
 """
 from __future__ import annotations
 
@@ -24,25 +27,61 @@ import argparse
 import os
 import sys
 
+if sys.stdout and hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+if sys.stderr and hasattr(sys.stderr, "reconfigure"):
+    try:
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 import torch
 
-from config import PrarthanaConfig, detect_device
+from config import ParhiConfig, detect_device
 from tokenizer import CharTokenizer
-from model import PrarthanaGPT
+from model import ParhiGPT
 
 
-DEFAULT_CHECKPOINT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prarthana_model.pt")
+def _load_dotenv() -> None:
+    """Load key-value pairs from .env into os.environ if not already set."""
+    env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if os.path.exists(env_file):
+        try:
+            with open(env_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        k, v = line.split("=", 1)
+                        k = k.strip()
+                        v = v.strip().strip("'\"")
+                        if k not in os.environ:
+                            os.environ[k] = v
+        except Exception:
+            pass
+
+_load_dotenv()
+
+# Try new name first, then fall back to legacy name
+_base_dir = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_CHECKPOINT = os.path.join(_base_dir, "parhi_model.pt")
+if not os.path.exists(DEFAULT_CHECKPOINT):
+    _legacy = os.path.join(_base_dir, "prarthana_model.pt")
+    if os.path.exists(_legacy):
+        DEFAULT_CHECKPOINT = _legacy
 
 
 # ---------------------------------------------------------------------------
 # Main CLI
 # ---------------------------------------------------------------------------
-class PrarthanaCLI:
-    """Interactive terminal interface for chatting with Prarthana-GPT v2.0.
+class ParhiCLI:
+    """Interactive terminal interface for chatting with Parhi-GPT v3.0.
 
-    Integrates all v2.0 subsystems: emotion engine, self-correction,
+    Integrates all subsystems: emotion engine, self-correction,
     personality, memory, streaming, thinking, tools, screen vision,
-    voice, hybrid brain, and dashboard.
+    voice, hybrid brain, dashboard, and JARVIS-style system commands.
     """
 
     def __init__(
@@ -54,7 +93,7 @@ class PrarthanaCLI:
         """Initialize the CLI by loading model and all subsystems.
 
         Args:
-            checkpoint_path: Path to the ``prarthana_model.pt`` checkpoint.
+            checkpoint_path: Path to the ``parhi_model.pt`` checkpoint.
             device: Compute device (auto-detected if ``None``).
             config_overrides: Optional dict of config overrides.
         """
@@ -82,12 +121,12 @@ class PrarthanaCLI:
         if "config" in ckpt:
             saved_cfg = ckpt["config"]
             saved_cfg["device"] = self.device
-            self.config = PrarthanaConfig(**{
+            self.config = ParhiConfig(**{
                 k: v for k, v in saved_cfg.items()
-                if k in PrarthanaConfig.__dataclass_fields__
+                if k in ParhiConfig.__dataclass_fields__
             })
         else:
-            self.config = PrarthanaConfig(
+            self.config = ParhiConfig(
                 vocab_size=self.tokenizer.vocab_size,
                 device=self.device,
             )
@@ -98,8 +137,21 @@ class PrarthanaCLI:
                 if hasattr(self.config, k):
                     setattr(self.config, k, v)
 
+        # Auto-enable hybrid brain & vision if API key is present and not explicitly overridden
+        has_api_key = bool(
+            os.environ.get("GEMINI_API_KEY")
+            or os.environ.get("OPENAI_API_KEY")
+            or os.environ.get("ANTHROPIC_API_KEY")
+            or os.environ.get("GOOGLE_API_KEY")
+        )
+        if has_api_key:
+            if not config_overrides or "enable_hybrid_brain" not in config_overrides:
+                self.config.enable_hybrid_brain = True
+            if not config_overrides or "enable_screen_vision" not in config_overrides:
+                self.config.enable_screen_vision = True
+
         # Rebuild model
-        self.model = PrarthanaGPT(self.config)
+        self.model = ParhiGPT(self.config)
         self.model.load_state_dict(ckpt["model_state_dict"])
         self.model.to(self.device)
         self.model.eval()
@@ -115,7 +167,7 @@ class PrarthanaCLI:
         self._init_subsystems()
 
     def _init_subsystems(self) -> None:
-        """Initialize all v2.0 feature subsystems based on config flags."""
+        """Initialize all feature subsystems based on config flags."""
 
         # Emotion detection
         self.emotion_detector = None
@@ -191,6 +243,17 @@ class PrarthanaCLI:
             except ImportError as e:
                 print(f"[✗] Agent tools failed: {e}")
 
+        # System commands (JARVIS features)
+        self.sys_commands = None
+        if self.config.enable_system_commands:
+            try:
+                from system_commands import SystemCommands, detect_system_command
+                self.sys_commands = SystemCommands()
+                self._detect_system_command = detect_system_command
+                print("[✓] JARVIS system commands enabled")
+            except ImportError as e:
+                print(f"[✗] System commands failed: {e}")
+
         # Screen vision
         self.screen = None
         if self.config.enable_screen_vision:
@@ -242,6 +305,8 @@ class PrarthanaCLI:
             except ImportError as e:
                 print(f"[✗] Dashboard failed: {e}")
 
+        self.last_thinking: str = ""
+
     def _generate_local(
         self,
         user_input: str,
@@ -260,7 +325,7 @@ class PrarthanaCLI:
         Returns:
             Generated response string.
         """
-        prompt = f"User: {user_input.strip()}\nPrarthana:"
+        prompt = f"User: {user_input.strip()}\nParhi:"
         self._history += prompt
 
         # Encode
@@ -304,19 +369,41 @@ class PrarthanaCLI:
 
         return response
 
-    def respond(self, user_input: str) -> str:
-        """Generate Prarthana's response with full v2.0 pipeline.
+    def respond(
+        self, user_input: str, return_thinking: bool = False
+    ) -> str | tuple[str, str]:
+        """Generate Parhi's response with full pipeline.
 
-        Orchestrates: emotion detection → self-correction check →
-        thinking → tool use → local/API generation → personality
+        Orchestrates: system commands → emotion detection → self-correction
+        check → thinking → tool use → local/API generation → personality
         touches → memory update → dashboard recording.
 
         Args:
             user_input: The user's message text.
+            return_thinking: If True, returns (response_string, thinking_display).
+                             If False (default), returns response_string.
 
         Returns:
-            Complete response string.
+            Response string, or (response_string, thinking_display) if return_thinking is True.
         """
+        self.last_thinking = ""
+
+        # --- Step 0: Check for system commands (JARVIS features) ---
+        if self.sys_commands:
+            # Check for confirmation of pending action
+            confirm_result = self.sys_commands.check_confirmation(user_input)
+            if confirm_result:
+                resp = confirm_result.display_text
+                return (resp, "") if return_thinking else resp
+
+            # Check for new system command
+            result = self._detect_system_command(user_input)
+            if result:
+                cmd_type, target = result
+                tool_result = self._execute_system_command(cmd_type, target)
+                if tool_result:
+                    return (tool_result, "") if return_thinking else tool_result
+
         # --- Step 1: Detect emotion ---
         emotion = None
         if self.emotion_detector:
@@ -379,7 +466,10 @@ class PrarthanaCLI:
             if self.memory:
                 memory_ctx = self.memory.get_context_summary()
             screen_ctx = ""
-            if self.screen and self.screen.active:
+            if self.screen and self.screen.active and any(
+                w in user_input.lower()
+                for w in ["screen", "look at", "what do you see", "window", "display"]
+            ):
                 screen_ctx = self.screen.describe()
 
             response = self.brain.query_api(
@@ -427,7 +517,56 @@ class PrarthanaCLI:
                 user_input, response, emotion, is_mistake
             )
 
-        return response, thinking_display
+        self.last_thinking = thinking_display
+        if return_thinking:
+            return response, thinking_display
+        return response
+
+    def _execute_system_command(self, cmd_type: str, target: str) -> str | None:
+        """Execute a JARVIS-style system command.
+
+        Args:
+            cmd_type: Type of system command.
+            target: Target app/value.
+
+        Returns:
+            Response text, or None if not handled.
+        """
+        sc = self.sys_commands
+
+        cmd_map = {
+            "open_camera": lambda: sc.open_camera(),
+            "take_photo": lambda: sc.open_camera(),
+            "screenshot": lambda: sc.take_screenshot(),
+            "lock_screen": lambda: sc.lock_screen(),
+            "volume_up": lambda: sc.volume_control("up"),
+            "volume_down": lambda: sc.volume_control("down"),
+            "volume_mute": lambda: sc.volume_control("mute"),
+            "brightness_up": lambda: sc.brightness_control("up"),
+            "brightness_down": lambda: sc.brightness_control("down"),
+            "shutdown": lambda: sc.power_command("shutdown"),
+            "restart": lambda: sc.power_command("restart"),
+            "sleep": lambda: sc.power_command("sleep"),
+            "running_apps": lambda: sc.list_running_apps(),
+            "battery": lambda: sc.battery_status(),
+            "wifi": lambda: sc.wifi_status(),
+            "play_music": lambda: sc.play_music(),
+            "ip_address": lambda: sc.get_ip_address(),
+            "empty_recycle_bin": lambda: sc.empty_recycle_bin(),
+        }
+
+        if cmd_type == "open_app":
+            result = sc.open_app(target) if target else sc.open_app("file explorer")
+        elif cmd_type == "close_app":
+            result = sc.close_app(target) if target else None
+        elif cmd_type == "open_website":
+            result = sc.open_website(target) if target else None
+        elif cmd_type in cmd_map:
+            result = cmd_map[cmd_type]()
+        else:
+            return None
+
+        return result.display_text if result else None
 
     def _output_response(
         self, response: str, thinking_display: str = ""
@@ -458,11 +597,11 @@ class PrarthanaCLI:
 
             self.streamer.stream(
                 response,
-                prefix="Prarthana: ",
+                prefix="Parhi: ",
                 show_indicator=True,
             )
         else:
-            print(f"\nPrarthana: {response}\n")
+            print(f"\nParhi: {response}\n")
 
         # Mini status bar
         if self.dashboard and self.config.show_mini_status:
@@ -473,25 +612,34 @@ class PrarthanaCLI:
 
         Supports special commands:
           /dashboard  — show full analytics dashboard
-          /mood       — show Prarthana's current mood
-          /memory     — show what Prarthana remembers
+          /mood       — show Parhi's current mood
+          /memory     — show what Parhi remembers
           /think on   — enable visible thinking
           /think off  — disable visible thinking
           /voice      — toggle voice mode
           /screen     — take & describe a screenshot
+          /camera     — open the camera
+          /install    — register Parhi as a startup app
           quit/exit   — end session
         """
         print()
         print("╔" + "═" * 58 + "╗")
-        print("║" + "  🧠 Prarthana-GPT v2.0 — Humanized AI Companion  ".center(58) + "║")
+        print("║" + "  🤖 Parhi-GPT v3.0 — JARVIS-Style AI Companion  ".center(58) + "║")
         print("╠" + "═" * 58 + "╣")
         print("║" + "  Commands:".ljust(58) + "║")
         print("║" + "    /dashboard  — conversation analytics".ljust(58) + "║")
-        print("║" + "    /mood       — Prarthana's current mood".ljust(58) + "║")
+        print("║" + "    /mood       — Parhi's current mood".ljust(58) + "║")
         print("║" + "    /memory     — what she remembers about you".ljust(58) + "║")
         print("║" + "    /think      — toggle thinking display".ljust(58) + "║")
         print("║" + "    /screen     — look at your screen".ljust(58) + "║")
         print("║" + "    /voice      — voice conversation mode".ljust(58) + "║")
+        print("║" + "    /camera     — open the camera".ljust(58) + "║")
+        print("║" + "    /install    — auto-start with Windows".ljust(58) + "║")
+        print("║" + "  Voice Commands:".ljust(58) + "║")
+        print("║" + '    "Parhi open [app]" — launch any app'.ljust(58) + "║")
+        print("║" + '    "Parhi open camera" — open camera'.ljust(58) + "║")
+        print("║" + '    "Parhi volume up/down" — control volume'.ljust(58) + "║")
+        print("║" + '    "Parhi battery status" — check battery'.ljust(58) + "║")
         print("║" + "    quit/exit   — end session".ljust(58) + "║")
         print("╚" + "═" * 58 + "╝")
         print()
@@ -502,13 +650,13 @@ class PrarthanaCLI:
             if greeting_ctx:
                 name = self.memory.get_user_name()
                 if name:
-                    print(f"Prarthana: Welcome back, {name}! I missed you! 😊\n")
+                    print(f"Parhi: Welcome back, {name}! I missed you! 😊\n")
                 else:
-                    print("Prarthana: Hey there! Great to see you again! 😊\n")
+                    print("Parhi: Hey there! Great to see you again! 😊\n")
             else:
-                print("Prarthana: Hi! I'm Prarthana — your AI companion. What's on your mind? 💫\n")
+                print("Parhi: Hi! I'm Parhi — your AI companion. What's on your mind? 💫\n")
         else:
-            print("Prarthana: Hi! I'm Prarthana — let's chat! 💫\n")
+            print("Parhi: Hi! I'm Parhi — let's chat! 💫\n")
 
         while True:
             try:
@@ -535,7 +683,7 @@ class PrarthanaCLI:
             if user_input.lower() == "/mood":
                 if self.personality:
                     desc = self.personality.get_mood_description()
-                    print(f"\n  🎭 Prarthana is currently {desc}\n")
+                    print(f"\n  🎭 Parhi is currently {desc}\n")
                 else:
                     print("  [personality system not enabled]")
                 continue
@@ -571,7 +719,7 @@ class PrarthanaCLI:
                 if self.screen and self.screen.active:
                     print("\n  👁️ Looking at your screen...")
                     desc = self.screen.describe()
-                    print(f"\n  Prarthana: {desc}\n")
+                    print(f"\n  Parhi: {desc}\n")
                 else:
                     print("  [screen vision not enabled — run with --screen]")
                 continue
@@ -583,9 +731,25 @@ class PrarthanaCLI:
                     print("  [voice engine not enabled — run with --voice]")
                 continue
 
+            if user_input.lower() == "/camera":
+                if self.sys_commands:
+                    result = self.sys_commands.open_camera()
+                    print(f"\n  Parhi: {result.display_text}\n")
+                else:
+                    print("  [system commands not enabled]")
+                continue
+
+            if user_input.lower() == "/install":
+                try:
+                    from install_startup import install
+                    install()
+                except Exception as e:
+                    print(f"  [Install failed: {e}]")
+                continue
+
             # --- Generate response ---
-            response, thinking_display = self.respond(user_input)
-            self._output_response(response, thinking_display)
+            response = self.respond(user_input)
+            self._output_response(response, self.last_thinking)
 
             # Voice output
             if self.voice and self.config.enable_voice_output:
@@ -612,8 +776,8 @@ class PrarthanaCLI:
                     print("  [returning to text mode]")
                     break
 
-                response, thinking = self.respond(text)
-                print(f"\n  Prarthana: {response}\n")
+                response = self.respond(text)
+                print(f"\n  Parhi: {response}\n")
                 self.voice.speak(response)
 
             except KeyboardInterrupt:
@@ -622,9 +786,9 @@ class PrarthanaCLI:
 
     def _exit_session(self) -> None:
         """Handle graceful session exit."""
-        print("\nPrarthana: Goodbye! It was wonderful chatting with you. ")
-        print("           Take care of yourself — I'll be right here")
-        print("           whenever you want to talk again! 💕\n")
+        print("\nParhi: Goodbye! It was wonderful chatting with you. ")
+        print("       Take care of yourself — I'll be right here")
+        print("       whenever you want to talk again! 💕\n")
 
         # Save memory
         if self.memory:
@@ -639,7 +803,7 @@ class PrarthanaCLI:
 def main() -> None:
     """CLI entry point with argument parsing."""
     parser = argparse.ArgumentParser(
-        description="Chat with Prarthana-GPT v2.0"
+        description="Chat with Parhi-GPT v3.0 — JARVIS-Style AI Companion"
     )
     parser.add_argument(
         "--checkpoint",
@@ -688,12 +852,47 @@ def main() -> None:
         help="Disable emotion detection.",
     )
     parser.add_argument(
+        "--no-api-brain",
+        action="store_true",
+        default=False,
+        help="Disable hybrid API brain (force 100%% local model).",
+    )
+    parser.add_argument(
+        "--no-screen",
+        action="store_true",
+        default=False,
+        help="Disable screen vision.",
+    )
+    parser.add_argument(
         "--fast",
         action="store_true",
         default=False,
         help="Fast mode: disable streaming and thinking for quick responses.",
     )
+    parser.add_argument(
+        "--background",
+        action="store_true",
+        default=False,
+        help="Launch Parhi as an always-on background service.",
+    )
+    parser.add_argument(
+        "--install",
+        action="store_true",
+        default=False,
+        help="Register Parhi as a Windows startup application.",
+    )
     args = parser.parse_args()
+
+    # Handle special modes
+    if args.install:
+        from install_startup import install
+        install()
+        return
+
+    if args.background:
+        from parhi_service import run_service
+        run_service()
+        return
 
     # Build config overrides from CLI args
     overrides: dict = {}
@@ -707,6 +906,12 @@ def main() -> None:
 
     if args.api_brain:
         overrides["enable_hybrid_brain"] = True
+
+    if args.no_api_brain:
+        overrides["enable_hybrid_brain"] = False
+
+    if args.no_screen:
+        overrides["enable_screen_vision"] = False
 
     if args.no_stream:
         overrides["enable_streaming"] = False
@@ -722,7 +927,7 @@ def main() -> None:
         overrides["enable_thinking"] = False
         overrides["show_mini_status"] = False
 
-    cli = PrarthanaCLI(
+    cli = ParhiCLI(
         checkpoint_path=args.checkpoint,
         device=args.device,
         config_overrides=overrides,

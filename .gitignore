@@ -1,0 +1,8 @@
+.env
+*.log
+__pycache__/
+*.pt
+test_memory.json
+.pytest_cache/
+voice_logs/
+.venv/

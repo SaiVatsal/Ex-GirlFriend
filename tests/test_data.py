@@ -8,9 +8,9 @@ import pytest
 
 SAMPLE_CORPUS = (
     "User: Hello\n"
-    "Prarthana: Hi there!\n\n"
+    "Parhi: Hi there!\n\n"
     "User: How are you?\n"
-    "Prarthana: I\u2019m doing great!\n"  # curly apostrophe
+    "Parhi: I\u2019m doing great!\n"  # curly apostrophe
 )
 
 
@@ -49,10 +49,10 @@ def test_build_splits_ratio():
 
 
 def test_get_batch_shapes():
-    from config import PrarthanaConfig
+    from config import ParhiConfig
     from data import build_splits, get_batch
 
-    cfg = PrarthanaConfig(block_size=8, batch_size=4, device="cpu")
+    cfg = ParhiConfig(block_size=8, batch_size=4, device="cpu")
     data = torch.randint(0, 50, (200,))
     train, val = build_splits(data, train_frac=0.9)
     x, y = get_batch("train", train_data=train, val_data=val, config=cfg)
@@ -62,10 +62,10 @@ def test_get_batch_shapes():
 
 
 def test_get_batch_target_is_shifted_input():
-    from config import PrarthanaConfig
+    from config import ParhiConfig
     from data import build_splits, get_batch
 
-    cfg = PrarthanaConfig(block_size=8, batch_size=2, device="cpu")
+    cfg = ParhiConfig(block_size=8, batch_size=2, device="cpu")
     data = torch.arange(100)
     train, val = build_splits(data, train_frac=0.9)
     x, y = get_batch("train", train_data=train, val_data=val, config=cfg)
@@ -75,10 +75,10 @@ def test_get_batch_target_is_shifted_input():
 
 def test_get_batch_raises_on_short_data():
     """Fix #4: get_batch must raise ValueError if data is too short."""
-    from config import PrarthanaConfig
+    from config import ParhiConfig
     from data import get_batch
 
-    cfg = PrarthanaConfig(block_size=100, batch_size=2, device="cpu")
+    cfg = ParhiConfig(block_size=100, batch_size=2, device="cpu")
     short_data = torch.arange(50)  # shorter than block_size
     with pytest.raises(ValueError, match="must be greater than"):
         get_batch("train", train_data=short_data, val_data=short_data, config=cfg)

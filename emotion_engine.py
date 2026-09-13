@@ -1,5 +1,5 @@
 # emotion_engine.py
-"""Lightweight emotion detection engine for Prarthana-GPT.
+"""Lightweight emotion detection engine for Parhi-GPT.
 
 Classifies user messages into emotional categories using keyword matching,
 pattern analysis, and punctuation/casing heuristics. No external ML models
@@ -208,7 +208,7 @@ class EmotionState:
         emotion: Primary detected emotion category.
         intensity: Strength of the emotion from 0.0 (barely) to 1.0 (extreme).
         triggers: List of words/patterns that triggered this classification.
-        suggested_prefix: A contextual response prefix for Prarthana to use.
+        suggested_prefix: A contextual response prefix for Parhi to use.
         secondary_emotion: Optional secondary emotion if mixed signals detected.
     """
     emotion: str = "neutral"
@@ -319,7 +319,7 @@ class EmotionDetector:
             intensity: Emotion intensity (0.0 to 1.0).
 
         Returns:
-            A string prefix for Prarthana's response.
+            A string prefix for Parhi's response.
         """
         import random
 

@@ -1,5 +1,5 @@
 # dashboard.py
-"""Conversation analytics dashboard for Prarthana-GPT.
+"""Conversation analytics dashboard for Parhi-GPT.
 
 Provides a rich terminal-based dashboard showing real-time conversation
 statistics, emotional trends, memory contents, and relationship health.
@@ -24,7 +24,7 @@ class ConversationStats:
 
     Attributes:
         total_messages: Total user messages.
-        total_responses: Total Prarthana responses.
+        total_responses: Total Parhi responses.
         session_duration_min: Session length in minutes.
         avg_response_length: Average response word count.
         topics_discussed: List of topics covered.
@@ -108,7 +108,7 @@ class Dashboard:
 
         Args:
             user_msg: The user's message.
-            response: Prarthana's response.
+            response: Parhi's response.
             emotion: Detected emotion state.
             was_mistake: Whether this was a mistake/correction.
         """
@@ -166,7 +166,7 @@ class Dashboard:
         lines: list[str] = []
         lines.append("")
         lines.append("╔" + "═" * width + "╗")
-        lines.append("║" + "  📊 Prarthana-GPT Dashboard  ".center(width) + "║")
+        lines.append("║" + "  📊 Parhi-GPT Dashboard  ".center(width) + "║")
         lines.append("╠" + "═" * width + "╣")
 
         # Session info

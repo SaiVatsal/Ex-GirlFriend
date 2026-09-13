@@ -1,5 +1,5 @@
 # model.py
-"""Prarthana-GPT: Pre-LayerNorm causal decoder-only Transformer.
+"""Parhi-GPT: Pre-LayerNorm causal decoder-only Transformer.
 
 Built entirely from ``torch.nn`` and ``torch.nn.functional`` primitives
 with no external dependencies beyond PyTorch.
@@ -19,7 +19,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from config import PrarthanaConfig
+from config import ParhiConfig
 
 
 class MultiHeadAttention(nn.Module):
@@ -31,7 +31,7 @@ class MultiHeadAttention(nn.Module):
     only to tokens <= t.
     """
 
-    def __init__(self, config: PrarthanaConfig) -> None:
+    def __init__(self, config: ParhiConfig) -> None:
         super().__init__()
         assert config.n_embd % config.n_head == 0, (
             f"n_embd ({config.n_embd}) must be divisible by n_head ({config.n_head})"
@@ -94,7 +94,7 @@ class FeedForward(nn.Module):
     Expansion factor: 4x (d_ff = 4 * d_model).
     """
 
-    def __init__(self, config: PrarthanaConfig) -> None:
+    def __init__(self, config: ParhiConfig) -> None:
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(config.n_embd, 4 * config.n_embd),
@@ -122,7 +122,7 @@ class TransformerBlock(nn.Module):
     x = x + FFN(LN_2(x))
     """
 
-    def __init__(self, config: PrarthanaConfig) -> None:
+    def __init__(self, config: ParhiConfig) -> None:
         super().__init__()
         self.ln1 = nn.LayerNorm(config.n_embd)
         self.attn = MultiHeadAttention(config)
@@ -143,7 +143,7 @@ class TransformerBlock(nn.Module):
         return x
 
 
-class PrarthanaGPT(nn.Module):
+class ParhiGPT(nn.Module):
     """Causal decoder-only Transformer language model.
 
     Architecture:
@@ -153,7 +153,7 @@ class PrarthanaGPT(nn.Module):
         -> Linear LM Head -> logits in R^{B x T x V}
     """
 
-    def __init__(self, config: PrarthanaConfig) -> None:
+    def __init__(self, config: ParhiConfig) -> None:
         super().__init__()
         self.config = config
 

@@ -1,6 +1,6 @@
-# Prarthana-GPT v2.0
+# Parhi-GPT v2.0
 
-A deeply humanized, emotionally intelligent AI companion built from scratch in pure PyTorch. Trains a character-level language model to embody **Prarthana** — a warm, thoughtful, empathetic conversational partner who detects your emotions, apologizes when scolded, remembers your preferences, thinks out loud, sees your screen, talks with you by voice, and genuinely cares.
+A deeply humanized, emotionally intelligent AI companion built from scratch in pure PyTorch. Trains a character-level language model to embody **Parhi** — a warm, thoughtful, empathetic conversational partner who detects your emotions, apologizes when scolded, remembers your preferences, thinks out loud, sees your screen, talks with you by voice, and genuinely cares.
 
 ## What's New in v2.0
 
@@ -9,7 +9,7 @@ A deeply humanized, emotionally intelligent AI companion built from scratch in p
 | 🎭 **Emotion Detection** | Detects 8 emotional states (angry, sad, happy, frustrated, scolding, loving, curious, neutral) with intensity scoring |
 | 🙏 **Self-Correction** | Apologizes sincerely when scolded, tracks mistakes, escalates apology depth |
 | 💬 **Conversation Memory** | Remembers your name, preferences, past topics, emotional patterns across sessions |
-| 🎨 **Dynamic Personality** | Prarthana's mood evolves based on conversation — playful, thoughtful, concerned, excited |
+| 🎨 **Dynamic Personality** | Parhi's mood evolves based on conversation — playful, thoughtful, concerned, excited |
 | 🌊 **Streaming Output** | Human-like typing animation with variable speed and natural pauses |
 | 🔄 **Extended Thinking** | Chain-of-thought reasoning with visible thinking steps for complex questions |
 | 🎯 **Agent Tools** | Web search, file reading, code execution, calculator, reminders |
@@ -33,7 +33,7 @@ A deeply humanized, emotionally intelligent AI companion built from scratch in p
 ```bash
 python train.py
 ```
-Reads `prarthana_corpus.txt` (200+ conversations), builds vocabulary, and trains for 3,000 steps (~5-8 min on CPU).
+Reads `parhi_corpus.txt` (200+ conversations), builds vocabulary, and trains for 3,000 steps (~5-8 min on CPU).
 
 ### Chat (Full Experience)
 ```bash
@@ -77,8 +77,8 @@ python -m pytest tests/ -v
 | Command | Description |
 |---------|-------------|
 | `/dashboard` | Show conversation analytics dashboard |
-| `/mood` | See Prarthana's current mood |
-| `/memory` | See what Prarthana remembers about you |
+| `/mood` | See Parhi's current mood |
+| `/memory` | See what Parhi remembers about you |
 | `/think` | Toggle thinking display on/off |
 | `/screen` | Take & describe a screenshot |
 | `/voice` | Enter voice conversation mode |
@@ -94,7 +94,7 @@ python -m pytest tests/ -v
 | `model.py` | Full Transformer: attention, FFN, blocks, LM head, generate |
 | `train.py` | Training loop with eval, checkpointing, and resume |
 | `chat.py` | **v2.0 integrated CLI** with all features |
-| `prarthana_corpus.txt` | **200+ conversations** covering all emotional scenarios |
+| `parhi_corpus.txt` | **200+ conversations** covering all emotional scenarios |
 | `emotion_engine.py` | Emotion detection & empathetic response generation |
 | `self_correction.py` | Apology system & mistake tracking |
 | `memory.py` | Persistent conversation memory (JSON-backed) |

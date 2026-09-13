@@ -1,7 +1,7 @@
 # agent_tools.py
-"""Agentic tool-use system for Prarthana-GPT.
+"""Agentic tool-use system for Parhi-GPT.
 
-Gives Prarthana the ability to take actions on behalf of the user:
+Gives Parhi the ability to take actions on behalf of the user:
 web search, file operations, code execution, timers/reminders,
 and system information.
 
@@ -31,7 +31,7 @@ class ToolResult:
         tool_name: Which tool was used.
         success: Whether the tool succeeded.
         result: The tool output/result.
-        display_text: Human-readable text for Prarthana to relay.
+        display_text: Human-readable text for Parhi to relay.
         error: Error message if the tool failed.
     """
     tool_name: str
@@ -86,6 +86,12 @@ TOOL_TRIGGERS: dict[str, list[str]] = {
         "calculate", "what is", "how much is", "compute",
         "multiply", "divide", "add", "subtract",
     ],
+    "system_command": [
+        "open camera", "take a photo", "take photo", "screenshot",
+        "lock screen", "volume up", "volume down", "mute",
+        "brightness up", "brightness down", "battery status",
+        "wifi status", "play music", "ip address",
+    ],
 }
 
 
@@ -94,7 +100,7 @@ TOOL_TRIGGERS: dict[str, list[str]] = {
 # ---------------------------------------------------------------------------
 
 class AgentTools:
-    """Collection of tools that Prarthana can use to help the user.
+    """Collection of tools that Parhi can use to help the user.
 
     Each tool is a method that takes parameters and returns a ToolResult.
     Tools are sandboxed and safe — no destructive operations.
@@ -137,6 +143,7 @@ class AgentTools:
             "system_info": self.system_info,
             "reminder": self.set_reminder,
             "calculator": self.calculate,
+            "system_command": self.system_command,
         }
 
         tool_func = tool_map.get(tool_name)
@@ -541,4 +548,68 @@ class AgentTools:
                 tool_name="calculator",
                 success=False,
                 display_text=f"I couldn't calculate that expression. Could you rephrase it?",
+            )
+
+    def system_command(self, message: str) -> ToolResult:
+        """Execute a JARVIS system command by delegating to system_commands.
+
+        Args:
+            message: User command message.
+
+        Returns:
+            ToolResult with system command execution result.
+        """
+        try:
+            from system_commands import SystemCommands, detect_system_command
+            cmd_info = detect_system_command(message)
+            if not cmd_info:
+                return ToolResult(
+                    tool_name="system_command",
+                    success=False,
+                    display_text="I couldn't identify the system command.",
+                )
+            cmd_type, target = cmd_info
+            sc = SystemCommands()
+            cmd_map = {
+                "open_camera": lambda: sc.open_camera(),
+                "take_photo": lambda: sc.open_camera(),
+                "screenshot": lambda: sc.take_screenshot(),
+                "lock_screen": lambda: sc.lock_screen(),
+                "volume_up": lambda: sc.volume_control("up"),
+                "volume_down": lambda: sc.volume_control("down"),
+                "volume_mute": lambda: sc.volume_control("mute"),
+                "brightness_up": lambda: sc.brightness_control("up"),
+                "brightness_down": lambda: sc.brightness_control("down"),
+                "shutdown": lambda: sc.power_command("shutdown"),
+                "restart": lambda: sc.power_command("restart"),
+                "sleep": lambda: sc.power_command("sleep"),
+                "running_apps": lambda: sc.list_running_apps(),
+                "battery": lambda: sc.battery_status(),
+                "wifi": lambda: sc.wifi_status(),
+                "play_music": lambda: sc.play_music(),
+                "ip_address": lambda: sc.get_ip_address(),
+                "empty_recycle_bin": lambda: sc.empty_recycle_bin(),
+            }
+            if cmd_type == "open_app":
+                res = sc.open_app(target) if target else sc.open_app("file explorer")
+            elif cmd_type == "close_app":
+                res = sc.close_app(target) if target else None
+            elif cmd_type == "open_website":
+                res = sc.open_website(target) if target else None
+            elif cmd_type in cmd_map:
+                res = cmd_map[cmd_type]()
+            else:
+                res = None
+
+            return res if res else ToolResult(
+                tool_name="system_command",
+                success=False,
+                display_text="System command not recognized.",
+            )
+        except Exception as e:
+            return ToolResult(
+                tool_name="system_command",
+                success=False,
+                error=str(e),
+                display_text=f"Failed to execute system command: {e}",
             )

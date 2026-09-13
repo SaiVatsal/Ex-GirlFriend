@@ -1,12 +1,12 @@
 # train.py
-"""Prarthana-GPT training engine with validation and checkpoint persistence.
+"""Parhi-GPT training engine with validation and checkpoint persistence.
 
 Usage:
     python train.py
 
-Reads ``prarthana_corpus.txt``, builds a character-level vocabulary,
+Reads ``parhi_corpus.txt``, builds a character-level vocabulary,
 constructs the Transformer, and trains with AdamW.  Checkpoints are
-saved to ``prarthana_model.pt`` and resumed automatically if present.
+saved to ``parhi_model.pt`` and resumed automatically if present.
 """
 from __future__ import annotations
 
@@ -17,17 +17,17 @@ import time
 
 import torch
 
-from config import PrarthanaConfig, detect_device
+from config import ParhiConfig, detect_device
 from tokenizer import CharTokenizer
 from data import load_corpus, build_splits, get_batch
-from model import PrarthanaGPT
+from model import ParhiGPT
 
 
 # ---------------------------------------------------------------------------
 # Paths
 # ---------------------------------------------------------------------------
-CORPUS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prarthana_corpus.txt")
-CHECKPOINT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prarthana_model.pt")
+CORPUS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "parhi_corpus.txt")
+CHECKPOINT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "parhi_model.pt")
 VOCAB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vocab.json")
 
 
@@ -36,10 +36,10 @@ VOCAB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "vocab.jso
 # ---------------------------------------------------------------------------
 @torch.no_grad()
 def estimate_loss(
-    model: PrarthanaGPT,
+    model: ParhiGPT,
     train_data: torch.Tensor,
     val_data: torch.Tensor,
-    config: PrarthanaConfig,
+    config: ParhiConfig,
 ) -> dict[str, float]:
     """Estimate mean cross-entropy loss over several batches.
 
@@ -73,12 +73,12 @@ def estimate_loss(
 
 def save_checkpoint(
     path: str,
-    model: PrarthanaGPT,
+    model: ParhiGPT,
     optimizer: torch.optim.Optimizer,
     tokenizer: CharTokenizer,
     step: int,
     best_val_loss: float,
-    config: PrarthanaConfig | None = None,
+    config: ParhiConfig | None = None,
 ) -> None:
     """Persist model, optimizer, vocab, config, and metadata to disk.
 
@@ -89,7 +89,7 @@ def save_checkpoint(
         tokenizer: Character tokenizer with populated stoi/itos.
         step: Current training step.
         best_val_loss: Lowest recorded validation loss so far.
-        config: Optional PrarthanaConfig to persist (fix #5).
+        config: Optional ParhiConfig to persist (fix #5).
     """
     payload: dict = {
         "model_state_dict": model.state_dict(),
@@ -106,7 +106,7 @@ def save_checkpoint(
 
 def load_checkpoint(
     path: str,
-    model: PrarthanaGPT,
+    model: ParhiGPT,
     optimizer: torch.optim.Optimizer,
     device: str,
 ) -> dict:
@@ -140,7 +140,7 @@ def load_checkpoint(
 # Main training loop
 # ---------------------------------------------------------------------------
 def train() -> None:
-    """Full training entry point for Prarthana-GPT.
+    """Full training entry point for Parhi-GPT.
 
     1. Load & sanitize corpus.
     2. Build character-level tokenizer.
@@ -151,11 +151,11 @@ def train() -> None:
        every ``eval_interval`` steps.
     """
     print("=" * 60)
-    print("  Prarthana-GPT -- Training Engine")
+    print("  Parhi-GPT -- Training Engine")
     print("=" * 60)
 
     # --- Config ---
-    config = PrarthanaConfig()
+    config = ParhiConfig()
     print(f"\n[device] {config.device}")
 
     # --- Corpus ---
@@ -179,7 +179,7 @@ def train() -> None:
     print(f"[split] train={len(train_data):,}  val={len(val_data):,}")
 
     # --- Model ---
-    model = PrarthanaGPT(config).to(config.device)
+    model = ParhiGPT(config).to(config.device)
     n_params = sum(p.numel() for p in model.parameters())
     print(f"[model] {n_params:,} parameters")
 

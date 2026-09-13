@@ -1,0 +1,25 @@
+{
+  "user_profile": {
+    "likes": "you"
+  },
+  "facts": [
+    {
+      "category": "preference",
+      "key": "likes",
+      "value": "you",
+      "confidence": 0.8,
+      "timestamp": 1789225156.8488503,
+      "source_message": "i love you"
+    },
+    {
+      "category": "preference",
+      "key": "likes",
+      "value": "you",
+      "confidence": 0.8,
+      "timestamp": 1789225350.3355353,
+      "source_message": "i love you"
+    }
+  ],
+  "past_sessions": [],
+  "relationship_score": 53.08
+}

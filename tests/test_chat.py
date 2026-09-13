@@ -1,5 +1,5 @@
 # tests/test_chat.py
-"""Tests for PrarthanaCLI: prompt formatting, stop-token logic, response gen."""
+"""Tests for ParhiCLI: prompt formatting, stop-token logic, response gen."""
 import os
 import tempfile
 import torch
@@ -8,17 +8,17 @@ import pytest
 
 @pytest.fixture
 def cli_instance(tmp_path):
-    """Create a tiny trained model checkpoint and instantiate PrarthanaCLI."""
-    from config import PrarthanaConfig
+    """Create a tiny trained model checkpoint and instantiate ParhiCLI."""
+    from config import ParhiConfig
     from tokenizer import CharTokenizer
-    from model import PrarthanaGPT
+    from model import ParhiGPT
     from train import save_checkpoint
 
-    corpus = "User: hi\nPrarthana: hello!\n"
+    corpus = "User: hi\nParhi: hello!\n"
     tok = CharTokenizer()
     tok.build(corpus)
 
-    cfg = PrarthanaConfig(
+    cfg = ParhiConfig(
         block_size=32,
         batch_size=2,
         n_embd=32,
@@ -28,14 +28,14 @@ def cli_instance(tmp_path):
         vocab_size=tok.vocab_size,
         device="cpu",
     )
-    model = PrarthanaGPT(cfg)
+    model = ParhiGPT(cfg)
     optimizer = torch.optim.AdamW(model.parameters(), lr=cfg.learning_rate)
     ckpt_path = str(tmp_path / "test_model.pt")
     save_checkpoint(ckpt_path, model, optimizer, tok, step=0, best_val_loss=5.0, config=cfg)
 
-    from chat import PrarthanaCLI
+    from chat import ParhiCLI
 
-    return PrarthanaCLI(checkpoint_path=ckpt_path, device="cpu")
+    return ParhiCLI(checkpoint_path=ckpt_path, device="cpu")
 
 
 def test_cli_loads_model(cli_instance):
@@ -66,7 +66,7 @@ def test_respond_does_not_echo_user_prefix(cli_instance):
 
 def test_prompt_formatting(cli_instance):
     """Internal prompt should include the dialogue structure."""
-    # Use only chars present in the fixture vocab: "User: hi\nPrarthana: hello!\n"
-    prompt = "User: hi\nPrarthana:"
+    # Use only chars present in the fixture vocab: "User: hi\nParhi: hello!\n"
+    prompt = "User: hi\nParhi:"
     ids = cli_instance.tokenizer.encode(prompt)
     assert len(ids) > 0

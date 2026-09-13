@@ -1,14 +1,14 @@
 # tests/test_model.py
-"""Tests for the Prarthana-GPT Transformer architecture."""
+"""Tests for the Parhi-GPT Transformer architecture."""
 import torch
 import pytest
 
 
 @pytest.fixture
 def small_config():
-    from config import PrarthanaConfig
+    from config import ParhiConfig
 
-    return PrarthanaConfig(
+    return ParhiConfig(
         block_size=16,
         batch_size=2,
         n_embd=32,
@@ -66,20 +66,20 @@ def test_transformer_block_output_shape(small_config):
     assert out.shape == (2, 16, 32)
 
 
-def test_prarthana_gpt_forward_logits_shape(small_config):
-    from model import PrarthanaGPT
+def test_parhi_gpt_forward_logits_shape(small_config):
+    from model import ParhiGPT
 
-    model = PrarthanaGPT(small_config)
+    model = ParhiGPT(small_config)
     idx = torch.randint(0, 50, (2, 16))
     logits, loss = model(idx)
     assert logits.shape == (2, 16, 50)
     assert loss is None
 
 
-def test_prarthana_gpt_forward_with_targets(small_config):
-    from model import PrarthanaGPT
+def test_parhi_gpt_forward_with_targets(small_config):
+    from model import ParhiGPT
 
-    model = PrarthanaGPT(small_config)
+    model = ParhiGPT(small_config)
     idx = torch.randint(0, 50, (2, 16))
     targets = torch.randint(0, 50, (2, 16))
     logits, loss = model(idx, targets)
@@ -89,10 +89,10 @@ def test_prarthana_gpt_forward_with_targets(small_config):
     assert loss.item() > 0
 
 
-def test_prarthana_gpt_generate(small_config):
-    from model import PrarthanaGPT
+def test_parhi_gpt_generate(small_config):
+    from model import ParhiGPT
 
-    model = PrarthanaGPT(small_config)
+    model = ParhiGPT(small_config)
     model.eval()
     idx = torch.randint(0, 50, (1, 5))
     out = model.generate(idx, max_new_tokens=10, temperature=0.8, top_k=10)
@@ -100,11 +100,11 @@ def test_prarthana_gpt_generate(small_config):
     assert (out[:, :5] == idx).all()  # prompt preserved
 
 
-def test_prarthana_gpt_generate_with_stop_ids(small_config):
+def test_parhi_gpt_generate_with_stop_ids(small_config):
     """Fix #3: generate() should stop early when a stop_id is produced."""
-    from model import PrarthanaGPT
+    from model import ParhiGPT
 
-    model = PrarthanaGPT(small_config)
+    model = ParhiGPT(small_config)
     model.eval()
     idx = torch.randint(0, 50, (1, 5))
     # Use all possible IDs as stop_ids so it stops on first token
@@ -116,21 +116,21 @@ def test_prarthana_gpt_generate_with_stop_ids(small_config):
     assert out.shape == (1, 6)
 
 
-def test_prarthana_gpt_parameter_count(small_config):
-    from model import PrarthanaGPT
+def test_parhi_gpt_parameter_count(small_config):
+    from model import ParhiGPT
 
-    model = PrarthanaGPT(small_config)
+    model = ParhiGPT(small_config)
     n_params = sum(p.numel() for p in model.parameters())
     assert n_params > 0
     # Rough sanity: 2-layer, 32-dim, 50-vocab should be small
     assert n_params < 500_000
 
 
-def test_prarthana_gpt_long_input_truncated(small_config):
+def test_parhi_gpt_long_input_truncated(small_config):
     """Input longer than block_size should be truncated to last block_size tokens."""
-    from model import PrarthanaGPT
+    from model import ParhiGPT
 
-    model = PrarthanaGPT(small_config)
+    model = ParhiGPT(small_config)
     idx = torch.randint(0, 50, (1, 32))  # 32 > block_size=16
     logits, loss = model(idx)
     # Model should truncate to block_size

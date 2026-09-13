@@ -1,5 +1,5 @@
 # config.py 
-"""Prarthana-GPT hyperparameter configuration and device detection."""
+"""Parhi-GPT hyperparameter configuration and device detection."""
 from __future__ import annotations
 
 import dataclasses
@@ -20,8 +20,8 @@ def detect_device() -> str:
 
 
 @dataclasses.dataclass
-class PrarthanaConfig:
-    """Central hyperparameter store for Prarthana-GPT.
+class ParhiConfig:
+    """Central hyperparameter store for Parhi-GPT.
 
     All training, model, and runtime knobs live here so every module
     imports one authoritative source of truth.
@@ -63,13 +63,13 @@ class PrarthanaConfig:
     # --- Emotion & Personality ---
     enable_emotion_detection: bool = True    # Detect user mood & respond empathetically
     enable_self_correction: bool = True      # Track mistakes & generate apologies
-    enable_personality: bool = True          # Dynamic mood system for Prarthana
+    enable_personality: bool = True          # Dynamic mood system for Parhi
     enable_streaming: bool = True            # Natural typing animation
     streaming_speed: float = 1.0             # Typing speed multiplier (lower = faster)
 
     # --- Memory ---
     enable_memory: bool = True               # Persistent conversation memory
-    memory_path: str = "prarthana_memory.json"
+    memory_path: str = "parhi_memory.json"
 
     # --- Vision ---
     enable_screen_vision: bool = False       # Screen capture & analysis (needs API key)
@@ -78,7 +78,7 @@ class PrarthanaConfig:
     # --- Voice ---
     enable_voice_input: bool = False         # Speech-to-text input
     enable_voice_output: bool = False        # Text-to-speech output
-    voice_ref_clip: str = "prarthana_voice.wav"
+    voice_ref_clip: str = "parhi_voice.wav"
 
     # --- Intelligence ---
     enable_hybrid_brain: bool = False        # API-backed factual intelligence
@@ -92,3 +92,18 @@ class PrarthanaConfig:
     # --- Dashboard ---
     enable_dashboard: bool = True            # Conversation analytics
     show_mini_status: bool = True            # Compact status bar after each exchange
+
+    # ======================================================================
+    # v3.0 Background Service & JARVIS Features
+    # ======================================================================
+
+    # --- Background Service ---
+    enable_background_service: bool = False  # Always-on background mode
+    wake_word: str = "parhi"                 # Wake word for voice activation
+    voice_log_enabled: bool = True           # Record ambient audio (no camera)
+    voice_log_dir: str = "voice_logs"        # Directory for audio logs
+    voice_log_retention_hours: int = 24      # How long to keep logs
+    startup_greeting: bool = True            # Greet user on system start
+
+    # --- System Commands ---
+    enable_system_commands: bool = True      # JARVIS-style system controls

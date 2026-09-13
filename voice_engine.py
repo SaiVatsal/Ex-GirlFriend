@@ -1,5 +1,5 @@
 # voice_engine.py
-"""Full-duplex voice conversation engine for Prarthana-GPT.
+"""Full-duplex voice conversation engine for Parhi-GPT.
 
 Provides real-time speech-to-text (via faster-whisper), text-to-speech
 (via Coqui XTTS v2), and voice activity detection for natural
@@ -34,7 +34,7 @@ class VoiceConfig:
         sample_rate: Audio sample rate in Hz.
         listen_mode: "push_to_talk" or "always_on".
     """
-    ref_clip: str = "prarthana_voice.wav"
+    ref_clip: str = "parhi_voice.wav"
     language: str = "en"
     stt_model: str = "base"
     vad_threshold: float = 0.5
@@ -135,7 +135,7 @@ class TextToSpeech:
     and interrupt capability.
     """
 
-    def __init__(self, ref_clip: str = "prarthana_voice.wav") -> None:
+    def __init__(self, ref_clip: str = "parhi_voice.wav") -> None:
         """Initialize TTS.
 
         Args:
@@ -374,3 +374,51 @@ class VoiceEngine:
     def interrupt(self) -> None:
         """Interrupt current speech playback."""
         self.tts.interrupt()
+
+    def play_chime(self) -> None:
+        """Play a short acknowledgment chime."""
+        try:
+            import numpy as np
+            import sounddevice as sd
+
+            sr = 22050
+            duration = 0.15
+            t = np.linspace(0, duration, int(sr * duration), endpoint=False)
+            tone1 = 0.3 * np.sin(2 * np.pi * 880 * t)   # A5
+            tone2 = 0.3 * np.sin(2 * np.pi * 1320 * t)  # E6
+            chime = np.concatenate([tone1, tone2]).astype(np.float32)
+
+            sd.play(chime, sr)
+            sd.wait()
+        except Exception:
+            try:
+                import winsound
+                winsound.Beep(880, 100)
+                winsound.Beep(1320, 100)
+            except Exception:
+                pass
+
+    def speak_greeting(self) -> None:
+        """Speak a time-aware startup greeting."""
+        try:
+            from parhi_service import speak_greeting
+            speak_greeting()
+        except Exception:
+            import datetime
+            hour = datetime.datetime.now().hour
+            greeting = "Good morning" if hour < 12 else ("Good afternoon" if hour < 17 else "Good evening")
+            self.speak(f"{greeting}! Parhi is online and ready to assist you.")
+
+    def listen_continuous(self, callback) -> None:
+        """Continuously listen for wake word and trigger callback on command.
+
+        Args:
+            callback: Function that receives the transcribed command string.
+        """
+        try:
+            from wake_word import WakeWordDetector
+            detector = WakeWordDetector()
+            detector.on_wake(callback)
+            detector.start()
+        except Exception as e:
+            print(f"[voice] Continuous listen error: {e}")

@@ -7,7 +7,7 @@ import unicodedata
 
 import torch
 
-from config import PrarthanaConfig
+from config import ParhiConfig
 
 
 def load_corpus(path: str) -> str:
@@ -71,7 +71,7 @@ def get_batch(
     *,
     train_data: torch.Tensor,
     val_data: torch.Tensor,
-    config: PrarthanaConfig,
+    config: ParhiConfig,
 ) -> tuple[torch.Tensor, torch.Tensor]:
     """Sample a random batch of input-target pairs for language modelling.
 

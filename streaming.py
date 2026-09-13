@@ -1,5 +1,5 @@
 # streaming.py
-"""Natural typing animation for Prarthana-GPT.
+"""Natural typing animation for Parhi-GPT.
 
 Instead of dumping full responses instantly, this module simulates
 human-like typing with variable speed, pauses at punctuation, and
@@ -51,7 +51,7 @@ MOOD_SPEED: dict[str, float] = {
 TYPING_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
 
-def show_typing_indicator(duration: float = 1.0, label: str = "Prarthana is thinking") -> None:
+def show_typing_indicator(duration: float = 1.0, label: str = "Parhi is thinking") -> None:
     """Display a brief animated typing indicator.
 
     Args:
@@ -96,7 +96,7 @@ class StreamingPrinter:
     def stream(
         self,
         text: str,
-        prefix: str = "Prarthana: ",
+        prefix: str = "Parhi: ",
         show_indicator: bool = True,
         thinking_duration: float = 0.8,
     ) -> None:
@@ -115,7 +115,7 @@ class StreamingPrinter:
         if show_indicator:
             show_typing_indicator(
                 duration=thinking_duration,
-                label="Prarthana is thinking",
+                label="Parhi is thinking",
             )
 
         # Print prefix instantly
@@ -193,11 +193,11 @@ class StreamingPrinter:
         self,
         text: str,
         correction_chance: float = 0.03,
-        prefix: str = "Prarthana: ",
+        prefix: str = "Parhi: ",
     ) -> None:
         """Stream text with occasional simulated self-corrections.
 
-        Sometimes Prarthana "types" a wrong word, backspaces, and retypes
+        Sometimes Parhi "types" a wrong word, backspaces, and retypes
         the correct one — a deeply human touch.
 
         Args:
@@ -208,7 +208,7 @@ class StreamingPrinter:
         if not text:
             return
 
-        show_typing_indicator(0.8, "Prarthana is thinking")
+        show_typing_indicator(0.8, "Parhi is thinking")
         sys.stdout.write(f"\n{prefix}")
         sys.stdout.flush()
 

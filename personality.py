@@ -1,7 +1,7 @@
 # personality.py
-"""Dynamic personality and mood system for Prarthana-GPT.
+"""Dynamic personality and mood system for Parhi-GPT.
 
-Prarthana has her own internal mood that evolves based on conversation
+Parhi has her own internal mood that evolves based on conversation
 flow. This module modulates response generation parameters (temperature,
 length, tone) to create a living, breathing personality that feels
 genuinely human.
@@ -21,7 +21,7 @@ from emotion_engine import EmotionState
 
 @dataclass
 class MoodState:
-    """Prarthana's internal mood at a given moment.
+    """Parhi's internal mood at a given moment.
 
     Attributes:
         mood: Current mood label.
@@ -39,7 +39,7 @@ class MoodState:
     updated_at: float = field(default_factory=time.time)
 
 
-# Mood transition rules: how user emotions affect Prarthana's mood
+# Mood transition rules: how user emotions affect Parhi's mood
 MOOD_TRANSITIONS: dict[str, dict[str, float]] = {
     # user_emotion: {mood_dimension: delta}
     "happy": {"energy": 0.1, "warmth": 0.1, "playfulness": 0.15, "confidence": 0.05},
@@ -117,7 +117,7 @@ CONVERSATIONAL_FILLERS: dict[str, list[str]] = {
 # ---------------------------------------------------------------------------
 
 class PersonalityEngine:
-    """Dynamic personality system that modulates Prarthana's behavior.
+    """Dynamic personality system that modulates Parhi's behavior.
 
     Maintains an internal mood state that evolves based on user emotions,
     conversation duration, and contextual factors. Adjusts generation
@@ -141,7 +141,7 @@ class PersonalityEngine:
         return self._mood.mood
 
     def update_mood(self, user_emotion: EmotionState) -> None:
-        """Update Prarthana's mood based on the user's detected emotion.
+        """Update Parhi's mood based on the user's detected emotion.
 
         Applies mood transition deltas and natural mood drift over time.
 
@@ -278,7 +278,7 @@ class PersonalityEngine:
         return response
 
     def get_mood_description(self) -> str:
-        """Get a human-readable description of Prarthana's current mood.
+        """Get a human-readable description of Parhi's current mood.
 
         Returns:
             A description string like "feeling cheerful and energetic".

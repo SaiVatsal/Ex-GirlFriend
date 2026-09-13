@@ -9,13 +9,13 @@ import pytest
 
 @pytest.fixture
 def small_setup():
-    from config import PrarthanaConfig
+    from config import ParhiConfig
     from tokenizer import CharTokenizer
-    from model import PrarthanaGPT
+    from model import ParhiGPT
 
     tok = CharTokenizer()
     tok.build("abcdefghijklmnopqrstuvwxyz \n:.!?,'-")
-    cfg = PrarthanaConfig(
+    cfg = ParhiConfig(
         block_size=16,
         batch_size=4,
         n_embd=32,
@@ -28,7 +28,7 @@ def small_setup():
         vocab_size=tok.vocab_size,
         device="cpu",
     )
-    model = PrarthanaGPT(cfg)
+    model = ParhiGPT(cfg)
     return cfg, tok, model
 
 
@@ -57,9 +57,9 @@ def test_save_and_load_checkpoint(small_setup, tmp_path):
     assert os.path.exists(ckpt_path)
 
     # Load into a fresh model
-    from model import PrarthanaGPT
+    from model import ParhiGPT
 
-    model2 = PrarthanaGPT(cfg)
+    model2 = ParhiGPT(cfg)
     opt2 = torch.optim.AdamW(model2.parameters(), lr=cfg.learning_rate)
     meta = load_checkpoint(ckpt_path, model2, opt2, "cpu")
 

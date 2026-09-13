@@ -1,9 +1,9 @@
 # hybrid_brain.py
-"""Hybrid intelligence routing for Prarthana-GPT.
+"""Hybrid intelligence routing for Parhi-GPT.
 
 Combines the local Transformer model (for personality and style) with
 optional external API calls (for factual accuracy and complex reasoning).
-The personality filter ensures that API responses still sound like Prarthana.
+The personality filter ensures that API responses still sound like Parhi.
 
 Supports: Google Gemini, OpenAI GPT-4o, Anthropic Claude as backends.
 Runs 100% local if no API key is configured.
@@ -27,8 +27,8 @@ class HybridConfig:
         mode: Operating mode — "local", "api", or "hybrid".
         api_provider: Which API to use ("gemini", "openai", "claude").
         api_key: API key for the provider.
-        personality_strength: How strongly to apply Prarthana's personality
-            to API responses (0.0 = pure API, 1.0 = maximum Prarthana).
+        personality_strength: How strongly to apply Parhi's personality
+            to API responses (0.0 = pure API, 1.0 = maximum Parhi).
         complexity_threshold: Message complexity score above which to
             escalate to the API (0.0-1.0).
     """
@@ -64,10 +64,17 @@ LOCAL_INDICATORS: list[str] = [
     "sing me a song", "write me a poem",
     "i'm sad", "i'm happy", "i'm angry", "i miss you",
     "bye", "goodbye", "see you",
+    # System commands (handled locally, not by API)
+    "open camera", "take a photo", "take photo", "screenshot",
+    "lock screen", "volume up", "volume down", "mute",
+    "brightness up", "brightness down", "shutdown", "restart",
+    "sleep", "running apps", "what's running", "battery",
+    "wifi status", "play music", "ip address", "recycle bin",
+    "open app", "close app",
 ]
 
-# Prarthana's personality instructions for the API
-PERSONALITY_SYSTEM_PROMPT = """You are Prarthana — a warm, intellectually curious, emotionally intelligent AI companion.
+# Parhi's personality instructions for the API
+PERSONALITY_SYSTEM_PROMPT = """You are Parhi — a warm, intellectually curious, emotionally intelligent AI companion with JARVIS-level capabilities.
 
 Your personality traits:
 - Genuinely caring and empathetic — you feel what the user feels
@@ -85,7 +92,7 @@ Response style:
 - Address the user warmly — you know them and care about them
 - Keep responses focused but thorough
 
-IMPORTANT: Never mention that you're using an API or external model. You ARE Prarthana.
+IMPORTANT: Never mention that you're using an API or external model. You ARE Parhi.
 """
 
 
@@ -98,7 +105,7 @@ class HybridBrain:
 
     The local model handles personality-driven interactions (greetings,
     emotional exchanges, casual chat). Complex factual or reasoning
-    questions are routed to an API, then filtered through Prarthana's
+    questions are routed to an API, then filtered through Parhi's
     personality to maintain consistent character.
 
     If no API key is configured, everything runs locally.
@@ -125,11 +132,27 @@ class HybridBrain:
         self._conversation_history: list[dict[str, str]] = []
 
     def _detect_api_key(self) -> str:
-        """Try to find an API key from environment variables.
+        """Try to find an API key from .env file or environment variables.
 
         Returns:
             API key string, or empty string.
         """
+        # Auto-load .env file if present
+        env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+        if os.path.exists(env_file):
+            try:
+                with open(env_file, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            k, v = line.split("=", 1)
+                            k = k.strip()
+                            v = v.strip().strip("'\"")
+                            if k not in os.environ:
+                                os.environ[k] = v
+            except Exception:
+                pass
+
         # Try each provider in order
         for provider, env_vars in [
             ("gemini", ["GEMINI_API_KEY", "GOOGLE_API_KEY"]),
@@ -159,27 +182,34 @@ class HybridBrain:
 
         lower = message.lower().strip()
 
-        # Check if it's clearly a personality/local interaction
-        if any(ind in lower for ind in LOCAL_INDICATORS):
-            return False
-
         # Check for complexity indicators
         complexity_score = 0.0
         for ind in COMPLEX_INDICATORS:
             if ind in lower:
-                complexity_score += 0.3
+                complexity_score += 0.4
 
-        # Long messages tend to be more complex
-        if len(message.split()) > 15:
-            complexity_score += 0.2
-
-        # Questions with technical terms
+        # Questions with technical or factual terms
         technical_terms = [
             "algorithm", "function", "variable", "database", "api",
             "server", "deploy", "architecture", "framework", "library",
-            "machine learning", "neural", "model", "training",
+            "machine learning", "neural", "model", "training", "quantum",
+            "physics", "chemistry", "biology", "math", "code", "python",
+            "difference", "history", "who is", "what is", "how do", "explain",
         ]
         if any(term in lower for term in technical_terms):
+            complexity_score += 0.3
+
+        # Questions or detailed inquiries
+        if "?" in message or any(w in lower for w in ["tell me", "explain", "how to"]):
+            complexity_score += 0.2
+
+        # Short casual check-in with no complex inquiry stays local
+        words = lower.split()
+        if len(words) <= 5 and any(ind in lower for ind in LOCAL_INDICATORS) and complexity_score < 0.4:
+            return False
+
+        # Long messages tend to be more complex
+        if len(words) > 12:
             complexity_score += 0.2
 
         return complexity_score >= self.config.complexity_threshold
@@ -200,7 +230,7 @@ class HybridBrain:
             memory_context: Memory/relationship context.
 
         Returns:
-            API response filtered through Prarthana's personality.
+            API response filtered through Parhi's personality.
         """
         # Build system prompt with context
         system = PERSONALITY_SYSTEM_PROMPT
@@ -257,13 +287,6 @@ class HybridBrain:
         Returns:
             Response text.
         """
-        try:
-            import requests
-        except ImportError:
-            return ""
-
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={self.config.api_key}"
-
         # Build Gemini-format messages
         contents = []
         for msg in history:
@@ -282,10 +305,34 @@ class HybridBrain:
             },
         }
 
-        resp = requests.post(url, json=payload, timeout=30)
-        resp.raise_for_status()
-        data = resp.json()
-        return data["candidates"][0]["content"]["parts"][0]["text"]
+        import json
+        candidate_models = ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-2.0-flash"]
+        
+        for model_name in candidate_models:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.config.api_key}"
+            try:
+                try:
+                    import requests
+                    resp = requests.post(url, json=payload, timeout=30)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        return data["candidates"][0]["content"]["parts"][0]["text"]
+                except ImportError:
+                    pass
+
+                import urllib.request
+                req = urllib.request.Request(
+                    url,
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                )
+                with urllib.request.urlopen(req, timeout=30) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    return data["candidates"][0]["content"]["parts"][0]["text"]
+            except Exception:
+                continue
+
+        return ""
 
     def _query_openai(
         self,

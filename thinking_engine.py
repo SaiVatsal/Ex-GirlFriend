@@ -1,7 +1,7 @@
 # thinking_engine.py
-"""Extended thinking and chain-of-thought reasoning for Prarthana-GPT.
+"""Extended thinking and chain-of-thought reasoning for Parhi-GPT.
 
-For complex questions, Prarthana can "think out loud" — showing her
+For complex questions, Parhi can "think out loud" — showing her
 reasoning process step by step before delivering a final answer.
 Inspired by Claude's extended thinking feature.
 """
@@ -25,7 +25,7 @@ class ThoughtProcess:
         question: The original question.
         thinking_steps: List of reasoning steps.
         conclusion: Final synthesized answer.
-        confidence: How confident Prarthana is in the answer (0.0-1.0).
+        confidence: How confident Parhi is in the answer (0.0-1.0).
         thinking_duration: Simulated thinking time in seconds.
         show_thinking: Whether thinking steps were shown to the user.
     """
@@ -135,7 +135,7 @@ class ThinkingEngine:
     """Extended thinking system for complex reasoning.
 
     Generates structured thinking processes that can be displayed to
-    the user, making Prarthana feel like she's genuinely reasoning
+    the user, making Parhi feel like she's genuinely reasoning
     through problems rather than just pattern-matching.
     """
 
@@ -323,7 +323,7 @@ class ThinkingEngine:
         return template
 
     def _estimate_confidence(self, message: str) -> float:
-        """Estimate how confident Prarthana should be about this topic.
+        """Estimate how confident Parhi should be about this topic.
 
         Args:
             message: The user's message.

@@ -1,5 +1,5 @@
 # memory.py
-"""Persistent conversation memory for Prarthana-GPT.
+"""Persistent conversation memory for Parhi-GPT.
 
 Provides short-term (in-session) and long-term (cross-session) memory
 that tracks user preferences, emotional patterns, conversation facts,
@@ -101,7 +101,7 @@ FACT_PATTERNS: list[tuple[str, str, str]] = [
 # ---------------------------------------------------------------------------
 
 class MemoryManager:
-    """Persistent memory system for Prarthana-GPT.
+    """Persistent memory system for Parhi-GPT.
 
     Manages three layers of memory:
     1. **Session memory**: Current conversation facts, emotions, exchanges
@@ -111,7 +111,7 @@ class MemoryManager:
     All data is periodically flushed to a JSON file for persistence.
     """
 
-    def __init__(self, memory_path: str = "prarthana_memory.json") -> None:
+    def __init__(self, memory_path: str = "parhi_memory.json") -> None:
         """Initialize memory, loading from disk if available.
 
         Args:
@@ -169,7 +169,7 @@ class MemoryManager:
 
         Args:
             user_message: The user's message.
-            bot_response: Prarthana's response.
+            bot_response: Parhi's response.
         """
         self._message_count += 1
         self._extract_facts(user_message)

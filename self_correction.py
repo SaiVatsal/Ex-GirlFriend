@@ -1,5 +1,5 @@
 # self_correction.py
-"""Self-correction, apology, and mistake-tracking system for Prarthana-GPT.
+"""Self-correction, apology, and mistake-tracking system for Parhi-GPT.
 
 Maintains a ledger of recent exchanges, detects when the user indicates
 a mistake was made, generates appropriately escalated apologies, and
@@ -20,11 +20,11 @@ from emotion_engine import EmotionState
 
 @dataclass
 class Exchange:
-    """A single user-Prarthana exchange with metadata.
+    """A single user-Parhi exchange with metadata.
 
     Attributes:
         user_message: What the user said.
-        bot_response: What Prarthana replied.
+        bot_response: What Parhi replied.
         timestamp: Unix timestamp of the exchange.
         emotion: Detected emotion state at this exchange.
         was_mistake: Whether the user indicated this was wrong.
@@ -40,7 +40,7 @@ class Exchange:
 
 @dataclass
 class MistakeRecord:
-    """Record of a specific mistake Prarthana made.
+    """Record of a specific mistake Parhi made.
 
     Attributes:
         topic: Brief description of what the question was about.
@@ -97,7 +97,7 @@ APOLOGY_TEMPLATES: dict[str, list[str]] = {
     ],
 }
 
-# Self-awareness phrases when Prarthana recognizes a pattern of mistakes
+# Self-awareness phrases when Parhi recognizes a pattern of mistakes
 PATTERN_AWARENESS: list[str] = [
     "I notice I've been making quite a few mistakes today. I'm going to be extra careful from now on.",
     "I realize I keep getting things wrong, and that's not fair to you. I'm going to slow down and think more carefully.",
@@ -116,7 +116,7 @@ class SelfCorrector:
     Maintains a rolling ledger of recent exchanges and a persistent
     list of mistakes made during the current session. Uses these to
     generate contextually appropriate apologies and to detect when
-    Prarthana is repeating past errors.
+    Parhi is repeating past errors.
     """
 
     def __init__(self, max_history: int = 20, max_mistakes: int = 50) -> None:
@@ -152,7 +152,7 @@ class SelfCorrector:
 
         Args:
             user_message: What the user said.
-            bot_response: What Prarthana replied.
+            bot_response: What Parhi replied.
             emotion: Detected emotion state for this exchange.
         """
         exchange = Exchange(
@@ -165,7 +165,7 @@ class SelfCorrector:
             self._history = self._history[-self._max_history:]
 
     def detect_mistake_indication(self, user_message: str) -> bool:
-        """Check if the user's message indicates Prarthana made a mistake.
+        """Check if the user's message indicates Parhi made a mistake.
 
         Args:
             user_message: The user's latest message.
@@ -227,7 +227,7 @@ class SelfCorrector:
             emotion: Current emotion state of the user.
 
         Returns:
-            An apology string to prepend to Prarthana's next response.
+            An apology string to prepend to Parhi's next response.
         """
         # Determine severity
         intensity = emotion.intensity if emotion else 0.5
@@ -258,7 +258,7 @@ class SelfCorrector:
         self._consecutive_mistakes = 0
 
     def has_made_similar_mistake(self, topic: str) -> bool:
-        """Check if Prarthana has made a mistake on a similar topic before.
+        """Check if Parhi has made a mistake on a similar topic before.
 
         Args:
             topic: Brief description of the current topic.

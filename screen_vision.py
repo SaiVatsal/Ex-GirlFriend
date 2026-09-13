@@ -1,5 +1,5 @@
 # screen_vision.py
-"""Real-time screen capture and analysis for Prarthana-GPT.
+"""Real-time screen capture and analysis for Parhi-GPT.
 
 Captures the user's screen with minimal latency using ``mss``,
 detects meaningful changes via pixel-diff thresholds, and sends
@@ -96,7 +96,7 @@ class ScreenVision:
 
     @staticmethod
     def _detect_api_key(provider: str) -> str | None:
-        """Try to find an API key from environment variables.
+        """Try to find an API key from .env file or environment variables.
 
         Args:
             provider: The API provider name.
@@ -104,6 +104,21 @@ class ScreenVision:
         Returns:
             API key string or None.
         """
+        env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+        if os.path.exists(env_file):
+            try:
+                with open(env_file, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line and not line.startswith("#") and "=" in line:
+                            k, v = line.split("=", 1)
+                            k = k.strip()
+                            v = v.strip().strip("'\"")
+                            if k not in os.environ:
+                                os.environ[k] = v
+            except Exception:
+                pass
+
         if provider == "gemini":
             return os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
         elif provider == "openai":
@@ -248,7 +263,7 @@ class ScreenVision:
         b64_image = base64.b64encode(image_bytes).decode("utf-8")
 
         prompt = (
-            "You are Prarthana, looking at the user's screen. "
+            "You are Parhi, looking at the user's screen. "
             "Describe what you see in a natural, conversational way — "
             "as if you're a friend looking over their shoulder. "
             "Be specific about what apps are open, what text is visible, "
@@ -258,8 +273,7 @@ class ScreenVision:
         if context:
             prompt += f"\n\nAdditional context: {context}"
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={self.api_key}"
-
+        import json
         payload = {
             "contents": [{
                 "parts": [
@@ -278,13 +292,37 @@ class ScreenVision:
             }
         }
 
-        try:
-            resp = requests.post(url, json=payload, timeout=15)
-            resp.raise_for_status()
-            data = resp.json()
-            return data["candidates"][0]["content"]["parts"][0]["text"]
-        except Exception as e:
-            return f"[Gemini vision error: {e}]"
+        candidate_models = ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-2.0-flash"]
+        last_error = ""
+
+        for model_name in candidate_models:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.api_key}"
+            try:
+                try:
+                    import requests
+                    resp = requests.post(url, json=payload, timeout=20)
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        return data["candidates"][0]["content"]["parts"][0]["text"]
+                    else:
+                        last_error = f"HTTP {resp.status_code}: {resp.text[:120]}"
+                except ImportError:
+                    pass
+
+                import urllib.request
+                req = urllib.request.Request(
+                    url,
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={"Content-Type": "application/json"},
+                )
+                with urllib.request.urlopen(req, timeout=20) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                    return data["candidates"][0]["content"]["parts"][0]["text"]
+            except Exception as e:
+                last_error = str(e)
+                continue
+
+        return f"[Gemini vision error: {last_error}]"
 
     def _analyze_openai(self, image_bytes: bytes, context: str = "") -> str:
         """Analyze screenshot using OpenAI GPT-4o API.
@@ -304,7 +342,7 @@ class ScreenVision:
         b64_image = base64.b64encode(image_bytes).decode("utf-8")
 
         prompt = (
-            "You are Prarthana, looking at the user's screen. "
+            "You are Parhi, looking at the user's screen. "
             "Describe what you see naturally, like a friend looking over their shoulder. "
             "Be specific and helpful."
         )
