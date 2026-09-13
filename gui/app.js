@@ -739,42 +739,8 @@ class BrainbowCanvas {
     const render = (time) => {
       const sec = time * 0.001;
       
-      // Transparent clearing: ensures the 4K neural tunnel video remains 100% visible beneath the firing neurons
+      // Canvas is cleared so ONLY the 4K neural tunnel video is visible
       this.ctx.clearRect(0, 0, this.width, this.height);
-
-      // 1. Draw Extracellular Matrix & Floating Vesicles
-      this.drawVesicles();
-
-      // 2. Update and Draw Neurons (Soma, Apical & Basal Arbors, Micro-Spines)
-      this.neurons.forEach(neuron => {
-        neuron.update(sec, this.sensoryVolume);
-        this.drawNeuronArbor(neuron);
-      });
-
-      // 3. Draw Interconnect Axon Collateral Web
-      this.drawAxonMesh();
-
-      // 4. Update & Draw Action Potential Sparks
-      this.updateAndDrawActionPotentials();
-
-      // 5. Update & Draw Neuroplastic Growth Bridges (Learning)
-      this.updateAndDrawBridges();
-
-      // 6. Draw Pyramidal Somas & Glowing Nuclei (Top Layer for 3D depth)
-      this.neurons.forEach(neuron => {
-        this.drawPyramidalSoma(neuron);
-      });
-
-      // Periodic spontaneous biological activity
-      if (Math.random() < 0.04 && this.state === "idle") {
-        this.triggerSpontaneousFiring();
-      } else if (this.state === "thinking" && Math.random() < 0.22) {
-        this.triggerSpontaneousFiring();
-      } else if (this.state === "listening" && Math.random() < 0.16) {
-        this.triggerSpontaneousFiring();
-      }
-
-      this.animationFrameId = requestAnimationFrame(render);
     };
 
     this.animationFrameId = requestAnimationFrame(render);

@@ -467,13 +467,7 @@ body {
 }
 
 #neural-canvas {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 2;
-  pointer-events: none;
+  display: none;
 }
 
 .cortex-overlay {
@@ -917,8 +911,7 @@ body {
   object-fit: cover;
   z-index: 1;
   pointer-events: none;
-  opacity: 0.95;
-  filter: contrast(1.08) brightness(1.02);
+  opacity: 1;
   transition: opacity 0.5s ease;
 }
 
