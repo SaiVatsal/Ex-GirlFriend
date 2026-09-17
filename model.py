@@ -1,16 +1,4 @@
 # model.py
-"""Parhi-GPT: Pre-LayerNorm causal decoder-only Transformer.
-
-Built entirely from ``torch.nn`` and ``torch.nn.functional`` primitives
-with no external dependencies beyond PyTorch.
-
-Architecture:
-    Token + Positional Embeddings -> N x TransformerBlock -> LayerNorm -> LM Head
-
-Each TransformerBlock uses Pre-LayerNorm ordering:
-    x = x + MHA(LN(x))
-    x = x + FFN(LN(x))
-"""
 from __future__ import annotations
 
 import math
