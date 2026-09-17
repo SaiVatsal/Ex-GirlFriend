@@ -63,8 +63,6 @@ def _load_dotenv() -> None:
             pass
 
 _load_dotenv()
-
-# Try new name first, then fall back to legacy name
 _base_dir = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_CHECKPOINT = os.path.join(_base_dir, "parhi_model.pt")
 if not os.path.exists(DEFAULT_CHECKPOINT):
@@ -73,9 +71,8 @@ if not os.path.exists(DEFAULT_CHECKPOINT):
         DEFAULT_CHECKPOINT = _legacy
 
 
-# ---------------------------------------------------------------------------
 # Main CLI
-# ---------------------------------------------------------------------------
+
 class ParhiCLI:
     """Interactive terminal interface for chatting with Parhi-GPT v3.0.
 
@@ -163,7 +160,7 @@ class ParhiCLI:
         if "\n" in self.tokenizer.stoi:
             self._newline_ids.append(self.tokenizer.stoi["\n"])
 
-        # --- Initialize v2.0 subsystems ---
+        #  Initialize v2.0 subsystems 
         self._init_subsystems()
 
     def _init_subsystems(self) -> None:
