@@ -1,12 +1,4 @@
-# agent_tools.py
-"""Agentic tool-use system for Parhi-GPT.
 
-Gives Parhi the ability to take actions on behalf of the user:
-web search, file operations, code execution, timers/reminders,
-and system information.
-
-All tools are sandboxed and safe. File operations are read-only by default.
-"""
 from __future__ import annotations
 
 import datetime
@@ -19,21 +11,10 @@ import time
 from dataclasses import dataclass, field
 
 
-# ---------------------------------------------------------------------------
-# Data structures
-# ---------------------------------------------------------------------------
 
+# DS
 @dataclass
 class ToolResult:
-    """Result from a tool invocation.
-
-    Attributes:
-        tool_name: Which tool was used.
-        success: Whether the tool succeeded.
-        result: The tool output/result.
-        display_text: Human-readable text for Parhi to relay.
-        error: Error message if the tool failed.
-    """
     tool_name: str
     success: bool = True
     result: str = ""
@@ -55,11 +36,7 @@ class Reminder:
     fired: bool = False
 
 
-# ---------------------------------------------------------------------------
-# Tool registry
-# ---------------------------------------------------------------------------
-
-# Patterns that indicate the user wants a tool action
+# Tool registryyy
 TOOL_TRIGGERS: dict[str, list[str]] = {
     "web_search": [
         "search for", "look up", "google", "find out", "search the web",
@@ -94,17 +71,10 @@ TOOL_TRIGGERS: dict[str, list[str]] = {
     ],
 }
 
-
-# ---------------------------------------------------------------------------
-# Tool implementations
-# ---------------------------------------------------------------------------
+# Tool implementations n n
 
 class AgentTools:
-    """Collection of tools that Parhi can use to help the user.
 
-    Each tool is a method that takes parameters and returns a ToolResult.
-    Tools are sandboxed and safe — no destructive operations.
-    """
 
     def __init__(self) -> None:
         self._reminders: list[Reminder] = []
@@ -112,14 +82,6 @@ class AgentTools:
         self._reminder_callback = None
 
     def detect_tool_request(self, message: str) -> str | None:
-        """Detect if a message is requesting a tool action.
-
-        Args:
-            message: The user's message.
-
-        Returns:
-            Tool name if detected, or None.
-        """
         lower = message.lower()
         for tool, triggers in TOOL_TRIGGERS.items():
             if any(trigger in lower for trigger in triggers):
@@ -127,15 +89,6 @@ class AgentTools:
         return None
 
     def execute_tool(self, tool_name: str, message: str) -> ToolResult:
-        """Execute a tool based on the tool name and user message.
-
-        Args:
-            tool_name: Name of the tool to execute.
-            message: The user's full message (for parameter extraction).
-
-        Returns:
-            ToolResult with the outcome.
-        """
         tool_map = {
             "web_search": self.web_search,
             "read_file": self.read_file,
@@ -256,16 +209,6 @@ class AgentTools:
             )
 
     def read_file(self, message: str) -> ToolResult:
-        """Read the contents of a file (read-only, safe).
-
-        Args:
-            message: User message containing file path.
-
-        Returns:
-            ToolResult with file contents.
-        """
-        # Extract file path from message
-        # Look for quoted paths or paths with extensions
         path_patterns = [
             r'"([^"]+)"',          # Quoted path
             r"'([^']+)'",          # Single-quoted path

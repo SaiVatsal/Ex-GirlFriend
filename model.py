@@ -1,16 +1,4 @@
 # model.py
-"""Parhi-GPT: Pre-LayerNorm causal decoder-only Transformer.
-
-Built entirely from ``torch.nn`` and ``torch.nn.functional`` primitives
-with no external dependencies beyond PyTorch.
-
-Architecture:
-    Token + Positional Embeddings -> N x TransformerBlock -> LayerNorm -> LM Head
-
-Each TransformerBlock uses Pre-LayerNorm ordering:
-    x = x + MHA(LN(x))
-    x = x + FFN(LN(x))
-"""
 from __future__ import annotations
 
 import math
@@ -23,14 +11,6 @@ from config import ParhiConfig
 
 
 class MultiHeadAttention(nn.Module):
-    """Multi-head causal self-attention with a pre-registered triangular mask.
-
-    Implements scaled dot-product attention:
-        Attention(Q, K, V) = softmax( (Q K^T / sqrt(d_k)) + M ) V
-    where M is a lower-triangular causal mask ensuring token t attends
-    only to tokens <= t.
-    """
-
     def __init__(self, config: ParhiConfig) -> None:
         super().__init__()
         assert config.n_embd % config.n_head == 0, (
@@ -39,13 +19,13 @@ class MultiHeadAttention(nn.Module):
         self.n_head = config.n_head
         self.head_dim = config.n_embd // config.n_head
 
-        # Combined QKV projection for efficiency
+        # efficiency
         self.qkv_proj = nn.Linear(config.n_embd, 3 * config.n_embd, bias=False)
         self.out_proj = nn.Linear(config.n_embd, config.n_embd, bias=False)
         self.attn_dropout = nn.Dropout(config.dropout)
         self.resid_dropout = nn.Dropout(config.dropout)
 
-        # Causal mask: upper triangle filled with -inf
+        #  triangle filled with -inf
         mask = torch.full(
             (1, 1, config.block_size, config.block_size),
             float("-inf"),
@@ -67,13 +47,9 @@ class MultiHeadAttention(nn.Module):
         # Compute Q, K, V in one matmul
         qkv = self.qkv_proj(x)  # (B, T, 3C)
         q, k, v = qkv.split(C, dim=2)  # each (B, T, C)
-
-        # Reshape for multi-head: (B, T, C) -> (B, n_head, T, head_dim)
         q = q.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
         k = k.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
         v = v.view(B, T, self.n_head, self.head_dim).transpose(1, 2)
-
-        # Scaled dot-product attention with causal mask
         scale = math.sqrt(self.head_dim)
         attn = (q @ k.transpose(-2, -1)) / scale  # (B, h, T, T)
         attn = attn + self.mask[:, :, :T, :T]
@@ -104,24 +80,10 @@ class FeedForward(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Apply position-wise FFN.
-
-        Args:
-            x: Input tensor of shape ``(B, T, C)``.
-
-        Returns:
-            Output tensor of shape ``(B, T, C)``.
-        """
         return self.net(x)
 
 
 class TransformerBlock(nn.Module):
-    """Pre-LayerNorm Transformer decoder block.
-
-    x = x + MHA(LN_1(x))
-    x = x + FFN(LN_2(x))
-    """
-
     def __init__(self, config: ParhiConfig) -> None:
         super().__init__()
         self.ln1 = nn.LayerNorm(config.n_embd)
@@ -130,14 +92,6 @@ class TransformerBlock(nn.Module):
         self.ffn = FeedForward(config)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Apply one Transformer decoder block.
-
-        Args:
-            x: Input tensor of shape ``(B, T, C)``.
-
-        Returns:
-            Output tensor of shape ``(B, T, C)``.
-        """
         x = x + self.attn(self.ln1(x))
         x = x + self.ffn(self.ln2(x))
         return x
