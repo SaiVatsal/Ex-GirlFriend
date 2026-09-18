@@ -3,13 +3,17 @@
 
 Maintains a ledger of recent exchanges, detects when the user indicates
 a mistake was made, generates appropriately escalated apologies, and
-tracks past errors to prevent repetition within a session.
+persists past errors to disk so Parhi remembers corrections and learns
+across sessions without repeating mistakes.
 """
 from __future__ import annotations
 
+import json
+import os
 import random
+import re
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, asdict
 
 from emotion_engine import EmotionState
 
@@ -69,40 +73,34 @@ CORRECTION_INDICATORS: list[str] = [
     "try again", "do it again", "redo", "fix it", "fix that",
     "the answer is", "it should be", "the correct", "wrong answer",
     "not even close", "way off", "completely wrong", "dead wrong",
-    "nope", "no!", "NO", "that's incorrect",
+    "nope", "no!", "that's incorrect", "that is wrong", "not right",
+    "it is actually", "actually it is",
 ]
 
-# Apology templates by severity
+# Apology templates by severity (mature, sincere, without weird filler)
 APOLOGY_TEMPLATES: dict[str, list[str]] = {
     "mild": [
-        "Oops, my bad! Let me correct that.",
-        "You're right, I got that mixed up. Here's what I meant to say:",
-        "Sorry about that! Let me think more carefully...",
-        "Ah, you're absolutely right. My mistake!",
-        "Fair enough — that wasn't my best answer. Let me try again:",
+        "My mistake. Thank you for correcting me. Here is the accurate answer:",
+        "You're right, I got that wrong. Let me provide the correct answer:",
+        "Thank you for catching that. Let me fix that for you:",
+        "You're absolutely right. My apologies — here's the correct information:",
     ],
     "moderate": [
-        "I'm really sorry about that. You're completely right, and I should have been more careful. Let me give you a proper answer:",
-        "I apologize — that was a careless mistake on my part. Thank you for correcting me. Here's the right answer:",
-        "You're 100% right, and I feel bad for getting that wrong. I should know better. Let me fix this:",
-        "I messed up there, and I'm genuinely sorry. Your patience means a lot. Here's what I should have said:",
-        "That was wrong of me, and I take full responsibility. Thank you for pointing it out — here's the correct answer:",
+        "I apologize for the error. You're completely right, and I've noted that correction for the future. Here is the right answer:",
+        "Thank you for setting me straight. That was an oversight on my part. Here is what's correct:",
+        "I appreciate you correcting me. I've stored that in my memory so I don't get it wrong again. Here's the accurate answer:",
     ],
     "severe": [
-        "I am so, so sorry. That was a terrible mistake and you have every right to be upset with me. I'm going to think really carefully this time and give you the answer you deserve. Please bear with me...",
-        "I deeply apologize. I've been giving you poor answers and that's not acceptable. You deserve much better from me. Let me start fresh and really think this through...",
-        "I'm truly sorry — I feel awful about getting this wrong, especially when you trusted me with it. I promise I'll do better. Let me take a moment and give you a thorough, accurate answer...",
-        "You're completely right to be frustrated with me. That was inexcusable, and I'm genuinely ashamed. I owe you a proper answer, and I'm going to give it everything I've got this time...",
-        "I can hear how frustrated you are, and every bit of that frustration is justified. I failed you, and I'm sorry. I'm going to slow down, think carefully, and make sure I get this right for you...",
+        "I deeply apologize. I gave you incorrect information and you have every right to be frustrated. I have recorded this correction so I won't repeat it:",
+        "I take full responsibility for that mistake. Thank you for your patience while I correct this:",
     ],
 }
 
 # Self-awareness phrases when Parhi recognizes a pattern of mistakes
 PATTERN_AWARENESS: list[str] = [
-    "I notice I've been making quite a few mistakes today. I'm going to be extra careful from now on.",
-    "I realize I keep getting things wrong, and that's not fair to you. I'm going to slow down and think more carefully.",
-    "I can see a pattern here — I've been too hasty with my answers. Let me take more time to think things through.",
-    "You've been really patient with me despite my mistakes. I appreciate that, and I'm going to step up my game.",
+    "I'm going to be extra careful with my answers going forward.",
+    "I appreciate you bearing with me as I learn and refine my understanding.",
+    "Thank you for teaching me — your feedback helps me get better.",
 ]
 
 
@@ -113,28 +111,52 @@ PATTERN_AWARENESS: list[str] = [
 class SelfCorrector:
     """Tracks mistakes, generates apologies, and prevents error repetition.
 
-    Maintains a rolling ledger of recent exchanges and a persistent
-    list of mistakes made during the current session. Uses these to
-    generate contextually appropriate apologies and to detect when
-    Parhi is repeating past errors.
+    Persists mistake records to disk in ``parhi_mistakes.json`` so corrections
+    survive restarts and allow Parhi to genuinely learn from her mistakes.
     """
 
-    def __init__(self, max_history: int = 20, max_mistakes: int = 50) -> None:
-        """Initialize the self-corrector.
-
-        Args:
-            max_history: Maximum exchanges to keep in the rolling ledger.
-            max_mistakes: Maximum mistake records to retain.
-        """
+    def __init__(
+        self,
+        max_history: int = 20,
+        max_mistakes: int = 100,
+        persistence_path: str = "parhi_mistakes.json",
+    ) -> None:
         self._history: list[Exchange] = []
         self._mistakes: list[MistakeRecord] = []
         self._max_history = max_history
         self._max_mistakes = max_mistakes
         self._consecutive_mistakes = 0
+        self._persistence_path = persistence_path
+        self._load()
+
+    def _load(self) -> None:
+        """Load past mistake records from disk."""
+        if not os.path.exists(self._persistence_path):
+            return
+        try:
+            with open(self._persistence_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            self._mistakes = [
+                MistakeRecord(**m) for m in data.get("mistakes", [])
+            ]
+        except Exception as e:
+            print(f"[self_correction] Note loading past mistakes: {e}")
+
+    def _save(self) -> None:
+        """Save mistake records to disk."""
+        try:
+            data = {
+                "mistakes": [asdict(m) for m in self._mistakes[-self._max_mistakes:]],
+                "total_recorded": len(self._mistakes),
+            }
+            with open(self._persistence_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            print(f"[self_correction] Note saving mistakes: {e}")
 
     @property
     def mistake_count(self) -> int:
-        """Total mistakes recorded this session."""
+        """Total mistakes recorded."""
         return len(self._mistakes)
 
     @property
@@ -148,13 +170,7 @@ class SelfCorrector:
         bot_response: str,
         emotion: EmotionState | None = None,
     ) -> None:
-        """Record a user-bot exchange in the history ledger.
-
-        Args:
-            user_message: What the user said.
-            bot_response: What Parhi replied.
-            emotion: Detected emotion state for this exchange.
-        """
+        """Record a user-bot exchange in the history ledger."""
         exchange = Exchange(
             user_message=user_message,
             bot_response=bot_response,
@@ -165,14 +181,7 @@ class SelfCorrector:
             self._history = self._history[-self._max_history:]
 
     def detect_mistake_indication(self, user_message: str) -> bool:
-        """Check if the user's message indicates Parhi made a mistake.
-
-        Args:
-            user_message: The user's latest message.
-
-        Returns:
-            True if the message contains correction indicators.
-        """
+        """Check if the user's message indicates Parhi made a mistake."""
         lower = user_message.lower()
         return any(indicator in lower for indicator in CORRECTION_INDICATORS)
 
@@ -181,32 +190,35 @@ class SelfCorrector:
         user_reaction: str,
         emotion: EmotionState | None = None,
     ) -> None:
-        """Register that the last response was a mistake.
-
-        Args:
-            user_reaction: The user's correction/scolding message.
-            emotion: The detected emotion state.
-        """
+        """Register that the last response was a mistake and persist it."""
         if not self._history:
             return
 
         last = self._history[-1]
         last.was_mistake = True
 
-        # Try to extract what the user said was correct
+        # Extract what the user said was correct
         correction = ""
         lower = user_reaction.lower()
-        for marker in ("actually it's", "actually, it's", "it should be",
-                        "the answer is", "it's actually", "the correct answer is"):
+        markers = (
+            "the correct answer is", "the right answer is", "the answer is",
+            "it's actually", "it is actually", "actually it's", "actually, it's",
+            "actually it is", "actually,", "actually ", "it should be",
+            "no, it's", "no it's", "no, it is", "no it is",
+            "i meant", "i said", "not that, it's", "real answer is",
+        )
+        for marker in markers:
             if marker in lower:
                 idx = lower.index(marker) + len(marker)
-                correction = user_reaction[idx:].strip().rstrip(".")
-                break
+                cand = user_reaction[idx:].strip().rstrip(".! ")
+                if cand:
+                    correction = cand
+                    break
 
         mistake = MistakeRecord(
-            topic=last.user_message[:80],
-            wrong_answer=last.bot_response[:200],
-            user_reaction=user_reaction[:200],
+            topic=last.user_message[:100],
+            wrong_answer=last.bot_response[:250],
+            user_reaction=user_reaction[:250],
             correction=correction,
         )
         self._mistakes.append(mistake)
@@ -214,22 +226,10 @@ class SelfCorrector:
             self._mistakes = self._mistakes[-self._max_mistakes:]
 
         self._consecutive_mistakes += 1
+        self._save()
 
     def generate_apology(self, emotion: EmotionState | None = None) -> str:
-        """Generate a contextually appropriate apology.
-
-        The apology escalates in depth and sincerity based on:
-        - The intensity of the user's emotional reaction
-        - How many consecutive mistakes have been made
-        - The total number of mistakes this session
-
-        Args:
-            emotion: Current emotion state of the user.
-
-        Returns:
-            An apology string to prepend to Parhi's next response.
-        """
-        # Determine severity
+        """Generate a contextually appropriate apology."""
         intensity = emotion.intensity if emotion else 0.5
 
         if intensity > 0.7 or self._consecutive_mistakes >= 3:
@@ -241,49 +241,53 @@ class SelfCorrector:
 
         apology = random.choice(APOLOGY_TEMPLATES[severity])
 
-        # Add pattern awareness if too many mistakes
         if self._consecutive_mistakes >= 3:
-            apology += "\n\n" + random.choice(PATTERN_AWARENESS)
+            apology += " " + random.choice(PATTERN_AWARENESS)
 
-        # Reference the specific mistake if we have context
         if self._mistakes:
             last_mistake = self._mistakes[-1]
             if last_mistake.correction:
-                apology += f"\n\nYou're right that it should be: {last_mistake.correction}"
+                apology += f" You're right that it is: {last_mistake.correction}."
 
         return apology
 
     def reset_streak(self) -> None:
-        """Reset the consecutive mistake counter (called on a successful exchange)."""
+        """Reset consecutive mistake counter upon successful exchange."""
         self._consecutive_mistakes = 0
 
-    def has_made_similar_mistake(self, topic: str) -> bool:
-        """Check if Parhi has made a mistake on a similar topic before.
-
-        Args:
-            topic: Brief description of the current topic.
+    def find_relevant_correction(self, query: str) -> str | None:
+        """Look up past mistakes to see if the user previously taught Parhi the correct answer.
 
         Returns:
-            True if a similar mistake exists in the ledger.
+            The learned correction string if a match is found, or None.
         """
-        topic_lower = topic.lower()
-        return any(
-            topic_lower in m.topic.lower() or m.topic.lower() in topic_lower
-            for m in self._mistakes
-        )
+        if not self._mistakes:
+            return None
+
+        q_lower = query.lower()
+        q_words = set(re.findall(r"\w+", q_lower))
+
+        for m in reversed(self._mistakes):
+            if not m.correction:
+                continue
+            topic_words = set(re.findall(r"\w+", m.topic.lower()))
+            # If significant keyword overlap exists between the current query and a past mistake
+            overlap = q_words.intersection(topic_words)
+            meaningful_overlap = [w for w in overlap if len(w) > 3 and w not in ("what", "when", "where", "which", "your", "this", "that")]
+            if len(meaningful_overlap) >= 2 or (len(meaningful_overlap) == 1 and len(topic_words) <= 3):
+                return m.correction
+        return None
 
     def get_mistake_context(self) -> str:
-        """Get a summary of recent mistakes for context injection.
-
-        Returns:
-            A string describing past mistakes, or empty string if none.
-        """
+        """Get a summary of past mistakes and learned corrections for prompt context."""
         if not self._mistakes:
             return ""
 
-        lines = ["[Past mistakes to avoid repeating:]"]
-        for m in self._mistakes[-3:]:
-            lines.append(f"- Topic: {m.topic}")
-            if m.correction:
-                lines.append(f"  Correct answer: {m.correction}")
+        corrected_records = [m for m in self._mistakes if m.correction]
+        if not corrected_records:
+            return ""
+
+        lines = ["[Learned Corrections from User:]"]
+        for m in corrected_records[-5:]:
+            lines.append(f"- Query: \"{m.topic}\" → Correct fact: \"{m.correction}\"")
         return "\n".join(lines)

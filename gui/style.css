@@ -510,87 +510,50 @@ body {
   animation: pulse-dot 1.8s infinite;
 }
 
-/* Mic Nucleus */
-.mic-nucleus-container {
-  position: relative;
-  width: 120px;
-  height: 120px;
+/* Bottom Input Dock Mic Button (Chat Beside) */
+.chat-mic-btn {
+  width: 38px;
+  height: 38px;
+  min-width: 38px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--text-muted);
   display: flex;
   align-items: center;
   justify-content: center;
-  pointer-events: auto;
-}
-
-.synaptic-wave-ring {
-  position: absolute;
-  border-radius: 50%;
-  border: 1px dashed rgba(168, 85, 247, 0.35);
-  pointer-events: none;
-  animation: rotate-ring 20s linear infinite;
-}
-.ring-1 { width: 130px; height: 130px; animation-duration: 25s; border-color: rgba(0, 240, 255, 0.25); }
-.ring-2 { width: 160px; height: 160px; animation-duration: 18s; animation-direction: reverse; border-color: rgba(236, 72, 153, 0.25); }
-.ring-3 { width: 190px; height: 190px; animation-duration: 30s; border-color: rgba(251, 191, 36, 0.2); }
-
-@keyframes rotate-ring {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.mic-button {
-  width: 86px;
-  height: 86px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 35% 35%, rgba(30, 41, 59, 0.8), rgba(10, 14, 26, 0.95));
-  border: 2px solid rgba(0, 240, 255, 0.5);
-  box-shadow: 0 0 25px rgba(0, 240, 255, 0.3), inset 0 0 20px rgba(168, 85, 247, 0.35);
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-right: 10px;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   outline: none;
 }
 
-.mic-button:hover {
-  transform: scale(1.08);
+.chat-mic-btn:hover {
+  background: rgba(0, 240, 255, 0.15);
   border-color: var(--c-cyan);
-  box-shadow: 0 0 35px rgba(0, 240, 255, 0.55), inset 0 0 25px rgba(236, 72, 153, 0.5);
-}
-
-.mic-button.active-listening {
-  border-color: var(--c-magenta);
-  background: radial-gradient(circle, rgba(236, 72, 153, 0.35), rgba(15, 23, 42, 0.9));
-  box-shadow: 0 0 45px rgba(236, 72, 153, 0.7), inset 0 0 30px rgba(0, 240, 255, 0.6);
-  animation: pulse-listening 1.4s infinite alternate;
-}
-
-@keyframes pulse-listening {
-  0% { transform: scale(1.05); }
-  100% { transform: scale(1.16); filter: drop-shadow(0 0 25px var(--c-magenta)); }
-}
-
-.mic-svg {
-  width: 32px;
-  height: 32px;
-  stroke: #ffffff;
-  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.8));
-  transition: stroke 0.3s;
-}
-
-.mic-button.active-listening .mic-svg {
-  stroke: var(--c-magenta);
-}
-
-.mic-caption {
-  font-size: 12px;
-  color: var(--text-muted);
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
-}
-.mic-caption .highlight-word {
   color: var(--c-cyan);
-  font-weight: 600;
+  box-shadow: 0 0 14px rgba(0, 240, 255, 0.4);
+  transform: scale(1.05);
+}
+
+.chat-mic-btn.active-listening {
+  background: rgba(236, 72, 153, 0.25);
+  border-color: var(--c-magenta);
+  color: var(--c-magenta);
+  box-shadow: 0 0 18px rgba(236, 72, 153, 0.6);
+  animation: pulse-mic 1.2s infinite alternate;
+}
+
+@keyframes pulse-mic {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.12); filter: drop-shadow(0 0 8px var(--c-magenta)); }
+}
+
+.chat-mic-btn .mic-svg {
+  width: 18px;
+  height: 18px;
+  stroke: currentColor;
+  transition: stroke 0.2s ease;
 }
 
 .live-transcript {

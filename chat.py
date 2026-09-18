@@ -1,32 +1,11 @@
 # chat.py
-"""Parhi-GPT v3.0 — JARVIS-Style Humanized AI Companion.
 
-Usage:
-    python chat.py [--checkpoint PATH] [--device DEVICE] [--voice]
-                   [--screen] [--no-stream] [--no-thinking] [--api-brain]
-                   [--background] [--install]
-
-The fully integrated chat experience with:
-  - Emotion detection & empathetic responses
-  - Self-correction & apology system
-  - Dynamic personality & mood
-  - Persistent conversation memory
-  - Natural streaming typing animation
-  - Extended thinking / chain-of-thought
-  - Agentic tool use (search, files, code, timers)
-  - Screen vision (real-time, optional)
-  - Voice conversation (optional)
-  - Hybrid local + API intelligence (optional)
-  - Conversation analytics dashboard
-  - JARVIS-style system commands (camera, apps, volume, etc.)
-  - Background service with wake word detection
-"""
 from __future__ import annotations
 
 import argparse
 import os
 import sys
-
+## import modudels
 if sys.stdout and hasattr(sys.stdout, "reconfigure"):
     try:
         sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -73,9 +52,9 @@ if not os.path.exists(DEFAULT_CHECKPOINT):
         DEFAULT_CHECKPOINT = _legacy
 
 
-# ---------------------------------------------------------------------------
+
 # Main CLI
-# ---------------------------------------------------------------------------
+
 class ParhiCLI:
     """Interactive terminal interface for chatting with Parhi-GPT v3.0.
 
@@ -310,17 +289,17 @@ class ParhiCLI:
     def _generate_local(
         self,
         user_input: str,
-        temperature: float = 0.8,
+        temperature: float = 0.75,
         top_k: int = 30,
-        max_tokens: int = 500,
+        max_tokens: int = 120,
     ) -> str:
-        """Generate a response using the local Transformer model.
+        """Generate a response using the local Transformer model on CPU/GPU.
 
         Args:
             user_input: The user's message text.
             temperature: Sampling temperature.
             top_k: Number of top logits to keep.
-            max_tokens: Maximum tokens to generate.
+            max_tokens: Maximum tokens to generate (concise, grounded).
 
         Returns:
             Generated response string.
@@ -339,7 +318,7 @@ class ParhiCLI:
 
         idx = torch.tensor([ids], dtype=torch.long, device=self.device)
 
-        # Generate
+        # Generate on CPU/GPU
         output = self.model.generate(
             idx,
             max_new_tokens=max_tokens,
@@ -360,6 +339,13 @@ class ParhiCLI:
                 break
 
         response = response.strip()
+
+        # Sentence boundary trimming for natural ChatGPT-style completion
+        if response and response[-1] not in (".", "!", "?"):
+            last_punct = max(response.rfind("."), response.rfind("!"), response.rfind("?"))
+            if last_punct > 15:
+                response = response[:last_punct + 1]
+
         self._history += " " + response + "\n\n"
 
         # Truncate history
@@ -411,7 +397,7 @@ class ParhiCLI:
             emotion = self.emotion_detector.detect(user_input)
 
         # --- Step 2: Update personality mood ---
-        gen_params = {"temperature": 0.8, "top_k": 30, "max_tokens": 500}
+        gen_params = {"temperature": 0.75, "top_k": 30, "max_tokens": 120}
         if self.personality and emotion:
             self.personality.update_mood(emotion)
             gen_params = self.personality.get_generation_params()
@@ -419,13 +405,17 @@ class ParhiCLI:
         # --- Step 3: Check for mistake correction ---
         apology_prefix = ""
         is_mistake = False
-        if self.self_corrector and emotion:
-            if (self.self_corrector.detect_mistake_indication(user_input) or
+        learned_correction = None
+        if self.self_corrector:
+            if emotion and (self.self_corrector.detect_mistake_indication(user_input) or
                     (emotion.emotion in ("scolding", "angry", "frustrated") and
                      emotion.intensity > 0.3)):
                 is_mistake = True
                 self.self_corrector.register_mistake(user_input, emotion)
                 apology_prefix = self.self_corrector.generate_apology(emotion)
+            elif not is_mistake:
+                # Check if user is asking about something they previously corrected
+                learned_correction = self.self_corrector.find_relevant_correction(user_input)
 
         # --- Step 4: Check for tool requests ---
         tool_response = None
@@ -457,6 +447,8 @@ class ParhiCLI:
         # --- Step 6: Generate response ---
         if tool_response:
             response = tool_response
+        elif learned_correction:
+            response = f"As you taught me earlier: {learned_correction}"
         elif self.brain and self.brain.needs_api(user_input):
             # Use hybrid brain (API)
             emotion_ctx = ""
@@ -465,6 +457,10 @@ class ParhiCLI:
             memory_ctx = ""
             if self.memory:
                 memory_ctx = self.memory.get_context_summary()
+            if self.self_corrector:
+                mistake_ctx = self.self_corrector.get_mistake_context()
+                if mistake_ctx:
+                    memory_ctx = (memory_ctx + "\n" + mistake_ctx).strip()
             screen_ctx = ""
             if self.screen and self.screen.active and any(
                 w in user_input.lower()
@@ -479,10 +475,10 @@ class ParhiCLI:
                 screen_context=screen_ctx,
             )
             if not response:
-                # Fallback to local
+                # Fallback to local CPU/GPU
                 response = self._generate_local(user_input, **gen_params)
         else:
-            # Use local model
+            # Use local CPU/GPU model
             response = self._generate_local(user_input, **gen_params)
 
         # --- Step 7: Apply emotion prefix ---

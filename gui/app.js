@@ -969,19 +969,14 @@ class SpeechManager {
 
   updateMicUI(active) {
     const btn = document.getElementById("mic-button");
-    const rings = document.querySelectorAll(".synaptic-wave-ring");
     const liveBox = document.getElementById("live-transcript");
-    const caption = document.getElementById("mic-caption");
 
     if (active) {
-      btn?.classList.add("active");
-      rings.forEach(r => r.classList.add("active-wave"));
+      btn?.classList.add("active-listening");
       if (liveBox) liveBox.style.display = "block";
-      if (caption) caption.innerHTML = "Listening to your voice...";
     } else {
-      btn?.classList.remove("active");
-      rings.forEach(r => r.classList.remove("active-wave"));
-      if (caption) caption.innerHTML = 'Click to Speak or say <span class="highlight-word">"Parhi"</span>';
+      btn?.classList.remove("active-listening");
+      if (liveBox) liveBox.style.display = "none";
     }
   }
 }

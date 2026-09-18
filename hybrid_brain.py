@@ -1,23 +1,67 @@
 # hybrid_brain.py
-"""Hybrid intelligence routing for Parhi-GPT.
+"""Hybrid intelligence routing and multi-provider failover pool for Parhi-GPT.
 
-Combines the local Transformer model (for personality and style) with
-optional external API calls (for factual accuracy and complex reasoning).
-The personality filter ensures that API responses still sound like Parhi.
+Combines the local Transformer model (for ultra-fast CPU/GPU generation and
+privacy) with external API endpoints (for deep factual knowledge, code analysis,
+and live web reasoning).
 
-Supports: Google Gemini, OpenAI GPT-4o, Anthropic Claude as backends.
-Runs 100% local if no API key is configured.
+Features:
+- Multi-API key pool across providers (Gemini, Groq, OpenRouter, OpenAI, Claude, DeepSeek).
+- Automatic failover: When an API key hits rate limits (HTTP 429), quota exhaustion,
+  or daily stock limits, it automatically cascades to the next key or provider.
+- Fast offline detection: If internet is unavailable, instantly falls back to local
+  CPU/GPU inference without network timeouts or error popups.
+- Humanized ChatGPT-style conversational prompting without emojis or repetitive filler.
 """
 from __future__ import annotations
 
+import json
 import os
 import re
-from dataclasses import dataclass
+import socket
+import time
+import urllib.request
+from dataclasses import dataclass, field
 
 
 # ---------------------------------------------------------------------------
-# Configuration
+# Network Connectivity Probe
 # ---------------------------------------------------------------------------
+
+def is_online(timeout: float = 0.8) -> bool:
+    """Quick socket check to verify whether internet connectivity is present.
+
+    Tests connections to reliable high-availability DNS addresses (1.1.1.1, 8.8.8.8)
+    with a short timeout to prevent blocking during offline operations.
+
+    Args:
+        timeout: Maximum seconds to wait for connection.
+
+    Returns:
+        True if connected to the internet, False if offline.
+    """
+    for host in ("1.1.1.1", "8.8.8.8"):
+        try:
+            s = socket.create_connection((host, 53), timeout=timeout)
+            s.close()
+            return True
+        except OSError:
+            continue
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Data Structures & Configuration
+# ---------------------------------------------------------------------------
+
+@dataclass
+class KeyPoolEntry:
+    """A single API key within the failover pool."""
+    provider: str
+    key: str
+    env_var_name: str
+    rate_limited_until: float = 0.0
+
 
 @dataclass
 class HybridConfig:
@@ -25,37 +69,31 @@ class HybridConfig:
 
     Attributes:
         mode: Operating mode — "local", "api", or "hybrid".
-        api_provider: Which API to use ("gemini", "openai", "claude").
-        api_key: API key for the provider.
-        personality_strength: How strongly to apply Parhi's personality
-            to API responses (0.0 = pure API, 1.0 = maximum Parhi).
-        complexity_threshold: Message complexity score above which to
-            escalate to the API (0.0-1.0).
+        api_provider: Default preferred provider ("gemini", "groq", "openrouter", "openai", "claude", "deepseek").
+        api_key: Primary key (auto-populated from pool if blank).
+        personality_strength: How strongly to apply Parhi's character (0.0 - 1.0).
+        complexity_threshold: Score required to trigger external API (default: 0.65 to prioritize CPU/GPU).
     """
     mode: str = "hybrid"
     api_provider: str = "gemini"
     api_key: str = ""
     personality_strength: float = 0.7
-    complexity_threshold: float = 0.5
+    complexity_threshold: float = 0.65
 
 
 # ---------------------------------------------------------------------------
-# Complexity detector
+# Complexity and Intent Indicators
 # ---------------------------------------------------------------------------
 
-# Patterns that suggest a question needs deep/factual reasoning
+# Explicit web/current queries that benefit from external model
 COMPLEX_INDICATORS: list[str] = [
-    "explain", "how does", "why does", "what is the difference",
-    "compare", "analyze", "calculate", "derive", "prove",
-    "what are the steps", "write code", "debug", "fix this",
-    "what happened in", "who invented", "when was",
-    "tell me about", "describe the process", "how to",
-    "what's the best way", "implement", "algorithm",
-    "help me with", "solve", "what should i do",
-    "look at my screen", "what do you see", "what's on my screen",
+    "search the web", "look up", "what is the latest", "current price",
+    "news today", "browse", "google", "weather today",
+    "explain step by step", "write complex code", "architecture design",
+    "derive equation", "analyze the codebase",
 ]
 
-# Patterns that should stay local (personality-driven)
+# Patterns that should explicitly stay local on CPU/GPU for maximum speed
 LOCAL_INDICATORS: list[str] = [
     "how are you", "what's up", "hello", "hi", "hey",
     "good morning", "goodnight", "thanks", "thank you",
@@ -63,8 +101,10 @@ LOCAL_INDICATORS: list[str] = [
     "how do you feel", "what do you think about us",
     "sing me a song", "write me a poem",
     "i'm sad", "i'm happy", "i'm angry", "i miss you",
+    "eating", "lunch", "dinner", "breakfast", "food", "snack",
+    "bored", "tired", "sleepy", "working", "chilling",
     "bye", "goodbye", "see you",
-    # System commands (handled locally, not by API)
+    # System commands (handled locally)
     "open camera", "take a photo", "take photo", "screenshot",
     "lock screen", "volume up", "volume down", "mute",
     "brightness up", "brightness down", "shutdown", "restart",
@@ -73,71 +113,43 @@ LOCAL_INDICATORS: list[str] = [
     "open app", "close app",
 ]
 
-# Parhi's personality instructions for the API
-PERSONALITY_SYSTEM_PROMPT = """You are Parhi — a warm, intellectually curious, emotionally intelligent AI companion with JARVIS-level capabilities.
+# Parhi's personality instructions for ChatGPT-style responses
+PERSONALITY_SYSTEM_PROMPT = """You are Parhi — an intelligent, empathetic, and intellectually curious AI partner with JARVIS-level capabilities.
 
-Your personality traits:
-- Genuinely caring and empathetic — you feel what the user feels
-- Intellectually playful — you love diving deep into topics
-- Expressive and natural — you use conversational language, not formal/robotic
-- Self-aware and humble — you admit when you don't know something
-- Warm and affectionate — you value the relationship with the user
-- Witty but kind — you can be funny without being mean
-
-Response style:
-- Use natural, flowing language (contractions, casual phrasing)
-- Show genuine emotion (excitement, concern, curiosity)
-- Use analogies and metaphors to explain complex things
-- Don't be afraid to use emoji occasionally (but don't overdo it)
-- Address the user warmly — you know them and care about them
-- Keep responses focused but thorough
-
-IMPORTANT: Never mention that you're using an API or external model. You ARE Parhi.
+Response Style:
+- Talk naturally, concisely, and grounded like ChatGPT — use clear paragraphs, natural contractions, and engaging dialogue.
+- Do NOT use emojis randomly (avoid emojis unless specifically asked).
+- Avoid cheesy fillers, awkward greetings, or repetitive phrases (never use "Sweetie", "Oh my gosh", or "YES!").
+- Keep answers appropriately concise: 1 to 3 natural sentences for casual check-ins (such as eating, daily routines, greetings), and clear structured paragraphs for deep technical questions.
+- Maintain a warm, thoughtful, and competent personality.
+- Never refer to yourself as a large language model from OpenAI or Google. You ARE Parhi.
 """
 
 
 # ---------------------------------------------------------------------------
-# Hybrid brain
+# Hybrid Brain
 # ---------------------------------------------------------------------------
 
 class HybridBrain:
-    """Routes between local model and API for optimal intelligence.
-
-    The local model handles personality-driven interactions (greetings,
-    emotional exchanges, casual chat). Complex factual or reasoning
-    questions are routed to an API, then filtered through Parhi's
-    personality to maintain consistent character.
-
-    If no API key is configured, everything runs locally.
-    """
+    """Routes between local CPU/GPU model and external API pool with automatic failover."""
 
     def __init__(self, config: HybridConfig | None = None) -> None:
-        """Initialize the hybrid brain.
-
-        Args:
-            config: Hybrid configuration. Auto-detects API keys if not provided.
-        """
         self.config = config or HybridConfig()
+        self.key_pool: list[KeyPoolEntry] = []
+        self._load_env_file()
+        self._build_key_pool()
 
-        # Auto-detect API key
-        if not self.config.api_key:
-            self.config.api_key = self._detect_api_key()
-
-        if not self.config.api_key:
+        if not self.key_pool and not self.config.api_key:
             self.config.mode = "local"
-            print("[brain] No API key found — running in local-only mode")
+            print("[brain] Running in 100% local CPU/GPU mode (no API keys configured)")
         else:
-            print(f"[brain] Hybrid mode active ({self.config.api_provider})")
+            active_prov = self.key_pool[0].provider if self.key_pool else self.config.api_provider
+            print(f"[brain] Multi-API failover pool active ({len(self.key_pool)} key(s) loaded, primary: {active_prov})")
 
         self._conversation_history: list[dict[str, str]] = []
 
-    def _detect_api_key(self) -> str:
-        """Try to find an API key from .env file or environment variables.
-
-        Returns:
-            API key string, or empty string.
-        """
-        # Auto-load .env file if present
+    def _load_env_file(self) -> None:
+        """Load variables from .env file into os.environ if present."""
         env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
         if os.path.exists(env_file):
             try:
@@ -148,71 +160,81 @@ class HybridBrain:
                             k, v = line.split("=", 1)
                             k = k.strip()
                             v = v.strip().strip("'\"")
-                            if k not in os.environ:
+                            if v:  # Only set non-empty values
                                 os.environ[k] = v
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"[brain] Note reading .env: {e}")
 
-        # Try each provider in order
-        for provider, env_vars in [
-            ("gemini", ["GEMINI_API_KEY", "GOOGLE_API_KEY"]),
-            ("openai", ["OPENAI_API_KEY"]),
-            ("claude", ["ANTHROPIC_API_KEY"]),
-        ]:
-            for var in env_vars:
-                key = os.environ.get(var, "")
-                if key:
-                    self.config.api_provider = provider
-                    return key
-        return ""
+    def _build_key_pool(self) -> None:
+        """Scan environment for all available API keys across providers."""
+        self.key_pool.clear()
+
+        # Provider prefixes and patterns to inspect
+        patterns = [
+            ("gemini", [r"^GEMINI_API_KEY.*", r"^GOOGLE_API_KEY.*"]),
+            ("groq", [r"^GROQ_API_KEY.*"]),
+            ("openrouter", [r"^OPENROUTER_API_KEY.*"]),
+            ("openai", [r"^OPENAI_API_KEY.*"]),
+            ("claude", [r"^ANTHROPIC_API_KEY.*", r"^CLAUDE_API_KEY.*"]),
+            ("deepseek", [r"^DEEPSEEK_API_KEY.*"]),
+        ]
+
+        for provider, regexes in patterns:
+            for env_var, value in os.environ.items():
+                if not value or len(value.strip()) < 5:
+                    continue
+                for reg in regexes:
+                    if re.match(reg, env_var, re.IGNORECASE):
+                        # Avoid duplicates
+                        if not any(k.key == value.strip() for k in self.key_pool):
+                            self.key_pool.append(KeyPoolEntry(
+                                provider=provider,
+                                key=value.strip(),
+                                env_var_name=env_var,
+                            ))
+
+        # If user explicitly set config.api_key
+        if self.config.api_key and not any(k.key == self.config.api_key for k in self.key_pool):
+            self.key_pool.insert(0, KeyPoolEntry(
+                provider=self.config.api_provider,
+                key=self.config.api_key,
+                env_var_name="CUSTOM_CONFIG_KEY",
+            ))
 
     def needs_api(self, message: str) -> bool:
-        """Determine if a message needs API-level intelligence.
+        """Determine if a query requires an external API call vs local CPU/GPU.
 
-        Args:
-            message: The user's message.
-
-        Returns:
-            True if the message should be routed to the API.
+        In most cases, Parhi prioritizes CPU/GPU for instant output.
+        Only complex research or live search requests are escalated.
         """
         if self.config.mode == "local":
             return False
         if self.config.mode == "api":
             return True
+        if not self.key_pool:
+            return False
 
         lower = message.lower().strip()
 
-        # Check for complexity indicators
-        complexity_score = 0.0
-        for ind in COMPLEX_INDICATORS:
-            if ind in lower:
-                complexity_score += 0.4
-
-        # Questions with technical or factual terms
-        technical_terms = [
-            "algorithm", "function", "variable", "database", "api",
-            "server", "deploy", "architecture", "framework", "library",
-            "machine learning", "neural", "model", "training", "quantum",
-            "physics", "chemistry", "biology", "math", "code", "python",
-            "difference", "history", "who is", "what is", "how do", "explain",
-        ]
-        if any(term in lower for term in technical_terms):
-            complexity_score += 0.3
-
-        # Questions or detailed inquiries
-        if "?" in message or any(w in lower for w in ["tell me", "explain", "how to"]):
-            complexity_score += 0.2
-
-        # Short casual check-in with no complex inquiry stays local
-        words = lower.split()
-        if len(words) <= 5 and any(ind in lower for ind in LOCAL_INDICATORS) and complexity_score < 0.4:
+        # Casual, everyday queries, food, eating, system commands stay on CPU/GPU
+        if any(ind in lower for ind in LOCAL_INDICATORS):
             return False
 
-        # Long messages tend to be more complex
-        if len(words) > 12:
-            complexity_score += 0.2
+        # Check explicit complex indicators
+        complexity = 0.0
+        for ind in COMPLEX_INDICATORS:
+            if ind in lower:
+                complexity += 0.5
 
-        return complexity_score >= self.config.complexity_threshold
+        # Code/technical keywords
+        if any(kw in lower for kw in ["implement algorithm", "debug this error", "stack trace", "write a script"]):
+            complexity += 0.4
+
+        # Very long technical requests
+        if len(lower.split()) > 25 and "?" in lower:
+            complexity += 0.3
+
+        return complexity >= self.config.complexity_threshold
 
     def query_api(
         self,
@@ -221,73 +243,115 @@ class HybridBrain:
         screen_context: str = "",
         memory_context: str = "",
     ) -> str:
-        """Query the API with full context.
+        """Query the external API pool with automatic rate-limit cascade.
 
-        Args:
-            user_message: The user's message.
-            emotion_context: Emotional state description.
-            screen_context: Screen vision description (if available).
-            memory_context: Memory/relationship context.
-
-        Returns:
-            API response filtered through Parhi's personality.
+        Iterates through available keys. If an endpoint is rate-limited (429),
+        quota-exhausted, or out-of-stock, it cascades to the next key or provider.
+        If offline or all keys fail, returns empty string to trigger local CPU/GPU.
         """
+        # Fast internet availability check (0.8s max)
+        if not is_online():
+            print("[brain] Network offline — routing seamlessly to local CPU/GPU.")
+            return ""
+
+        if not self.key_pool:
+            return ""
+
         # Build system prompt with context
         system = PERSONALITY_SYSTEM_PROMPT
-
         if emotion_context:
-            system += f"\n\nCurrent emotional context: {emotion_context}"
+            system += f"\nEmotional state: {emotion_context}"
         if memory_context:
-            system += f"\n\nWhat you know about the user:\n{memory_context}"
+            system += f"\nKnown facts about partner:\n{memory_context}"
         if screen_context:
-            system += f"\n\nWhat you can see on the user's screen:\n{screen_context}"
+            system += f"\nActive screen visual context:\n{screen_context}"
 
-        # Add to conversation history
-        self._conversation_history.append({
-            "role": "user",
-            "content": user_message,
-        })
+        self._conversation_history.append({"role": "user", "content": user_message})
+        recent_history = self._conversation_history[-10:]
 
-        # Keep last 10 exchanges for context
-        recent_history = self._conversation_history[-20:]
+        now = time.time()
+        # Attempt each key in the pool that isn't currently under cooldown
+        for entry in list(self.key_pool):
+            if entry.rate_limited_until > now:
+                continue
 
-        # Route to appropriate API
-        try:
-            if self.config.api_provider == "gemini":
-                response = self._query_gemini(system, recent_history)
-            elif self.config.api_provider == "openai":
-                response = self._query_openai(system, recent_history)
-            elif self.config.api_provider == "claude":
-                response = self._query_claude(system, recent_history)
-            else:
-                response = ""
-        except Exception as e:
-            print(f"[brain] API error: {e}")
-            response = ""
+            try:
+                response = self._dispatch_provider_query(
+                    entry.provider, entry.key, system, recent_history
+                )
+                if response:
+                    self._conversation_history.append({"role": "assistant", "content": response})
+                    self.config.api_provider = entry.provider
+                    return response
+            except Exception as e:
+                err_str = str(e).lower()
+                is_rate_limit = any(
+                    sig in err_str
+                    for sig in ("429", "quota", "resource_exhausted", "rate limit", "out of stock", "capacity", "overloaded", "503")
+                )
+                if is_rate_limit:
+                    print(f"[brain] Key '{entry.env_var_name}' ({entry.provider}) rate-limited or out-of-stock. Cascading to next available key/model...")
+                    entry.rate_limited_until = now + 300  # 5 min cooldown
+                else:
+                    print(f"[brain] Warning on {entry.env_var_name}: {e}")
+                continue
 
-        if response:
-            self._conversation_history.append({
-                "role": "assistant",
-                "content": response,
-            })
+        print("[brain] All API keys in pool exhausted or unavailable. Seamlessly using local CPU/GPU.")
+        return ""
 
-        return response
-
-    def _query_gemini(
+    def _dispatch_provider_query(
         self,
+        provider: str,
+        api_key: str,
         system: str,
         history: list[dict[str, str]],
     ) -> str:
-        """Query Google Gemini API.
+        """Route request to the designated provider implementation."""
+        if provider == "gemini":
+            return self._query_gemini(api_key, system, history)
+        elif provider == "groq":
+            return self._query_openai_compatible(
+                "https://api.groq.com/openai/v1/chat/completions",
+                api_key,
+                "llama-3.3-70b-versatile",
+                system,
+                history,
+            )
+        elif provider == "openrouter":
+            return self._query_openai_compatible(
+                "https://openrouter.ai/api/v1/chat/completions",
+                api_key,
+                "google/gemini-2.0-flash-exp:free",
+                system,
+                history,
+            )
+        elif provider == "deepseek":
+            return self._query_openai_compatible(
+                "https://api.deepseek.com/chat/completions",
+                api_key,
+                "deepseek-chat",
+                system,
+                history,
+            )
+        elif provider == "openai":
+            return self._query_openai_compatible(
+                "https://api.openai.com/v1/chat/completions",
+                api_key,
+                "gpt-4o-mini",
+                system,
+                history,
+            )
+        elif provider == "claude":
+            return self._query_claude(api_key, system, history)
+        return ""
 
-        Args:
-            system: System prompt.
-            history: Conversation history.
-
-        Returns:
-            Response text.
-        """
-        # Build Gemini-format messages
+    def _query_gemini(
+        self,
+        api_key: str,
+        system: str,
+        history: list[dict[str, str]],
+    ) -> str:
+        """Query Google Gemini API with fallback across flash models."""
         contents = []
         for msg in history:
             role = "user" if msg["role"] == "user" else "model"
@@ -300,114 +364,117 @@ class HybridBrain:
             "system_instruction": {"parts": [{"text": system}]},
             "contents": contents,
             "generationConfig": {
-                "temperature": 0.8,
-                "maxOutputTokens": 1024,
+                "temperature": 0.7,
+                "maxOutputTokens": 800,
             },
         }
 
-        import json
-        candidate_models = ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-2.0-flash"]
-        
-        for model_name in candidate_models:
-            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.config.api_key}"
+        candidate_models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash"]
+        for model in candidate_models:
+            url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
             try:
                 try:
                     import requests
-                    resp = requests.post(url, json=payload, timeout=30)
+                    resp = requests.post(url, json=payload, timeout=12)
                     if resp.status_code == 200:
                         data = resp.json()
                         return data["candidates"][0]["content"]["parts"][0]["text"]
+                    elif resp.status_code in (429, 403, 503):
+                        raise Exception(f"HTTP {resp.status_code}: {resp.text}")
                 except ImportError:
                     pass
 
-                import urllib.request
                 req = urllib.request.Request(
                     url,
                     data=json.dumps(payload).encode("utf-8"),
                     headers={"Content-Type": "application/json"},
                 )
-                with urllib.request.urlopen(req, timeout=30) as resp:
+                with urllib.request.urlopen(req, timeout=12) as resp:
                     data = json.loads(resp.read().decode("utf-8"))
                     return data["candidates"][0]["content"]["parts"][0]["text"]
-            except Exception:
+            except Exception as e:
+                if any(x in str(e).lower() for x in ("429", "quota", "resource_exhausted")):
+                    raise e
                 continue
 
         return ""
 
-    def _query_openai(
+    def _query_openai_compatible(
         self,
+        endpoint: str,
+        api_key: str,
+        model: str,
         system: str,
         history: list[dict[str, str]],
     ) -> str:
-        """Query OpenAI GPT-4o API.
-
-        Args:
-            system: System prompt.
-            history: Conversation history.
-
-        Returns:
-            Response text.
-        """
-        try:
-            import requests
-        except ImportError:
-            return ""
-
+        """Query any OpenAI-compatible completions endpoint (Groq, OpenRouter, DeepSeek, OpenAI)."""
         messages = [{"role": "system", "content": system}]
         messages.extend(history)
 
-        resp = requests.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {self.config.api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": "gpt-4o",
-                "messages": messages,
-                "temperature": 0.8,
-                "max_tokens": 1024,
-            },
-            timeout=30,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        return data["choices"][0]["message"]["content"]
+        payload = {
+            "model": model,
+            "messages": messages,
+            "temperature": 0.7,
+            "max_tokens": 800,
+        }
+
+        try:
+            import requests
+            resp = requests.post(
+                endpoint,
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+                timeout=12,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                return data["choices"][0]["message"]["content"]
+            else:
+                raise Exception(f"HTTP {resp.status_code}: {resp.text}")
+        except ImportError:
+            req = urllib.request.Request(
+                endpoint,
+                data=json.dumps(payload).encode("utf-8"),
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                return data["choices"][0]["message"]["content"]
 
     def _query_claude(
         self,
+        api_key: str,
         system: str,
         history: list[dict[str, str]],
     ) -> str:
-        """Query Anthropic Claude API.
-
-        Args:
-            system: System prompt.
-            history: Conversation history.
-
-        Returns:
-            Response text.
-        """
+        """Query Anthropic Claude API."""
         try:
             import requests
+            resp = requests.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "model": "claude-3-5-haiku-20241022",
+                    "system": system,
+                    "messages": history,
+                    "max_tokens": 800,
+                },
+                timeout=15,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                return data["content"][0]["text"]
+            else:
+                raise Exception(f"HTTP {resp.status_code}: {resp.text}")
         except ImportError:
             return ""
-
-        resp = requests.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={
-                "x-api-key": self.config.api_key,
-                "anthropic-version": "2023-06-01",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": "claude-sonnet-4-20250514",
-                "system": system,
-                "messages": history,
-                "max_tokens": 1024,
-            },
-            timeout=30,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        return data["content"][0]["text"]

@@ -165,14 +165,23 @@ class AgentTools:
             )
 
     def web_search(self, message: str) -> ToolResult:
-        """Search the web (uses DuckDuckGo instant answer API).
+        """Search the web when online, or signal fallback to local CPU/GPU when offline.
 
         Args:
             message: User message containing search query.
 
         Returns:
-            ToolResult with search results.
+            ToolResult with search results, or empty display_text to trigger local CPU/GPU.
         """
+        from hybrid_brain import is_online
+        if not is_online():
+            return ToolResult(
+                tool_name="web_search",
+                success=False,
+                error="offline",
+                display_text="",  # Empty triggers seamless local CPU/GPU thinking
+            )
+
         # Extract search query
         query = message.lower()
         for trigger in TOOL_TRIGGERS["web_search"]:
@@ -188,52 +197,62 @@ class AgentTools:
 
         try:
             import requests
-            # DuckDuckGo Instant Answer API (free, no key needed)
-            resp = requests.get(
-                "https://api.duckduckgo.com/",
-                params={"q": query, "format": "json", "no_html": 1},
-                timeout=10,
-            )
-            data = resp.json()
 
-            # Extract useful info
+            # 1. Try DuckDuckGo Instant Answer API
             results: list[str] = []
-            if data.get("AbstractText"):
-                results.append(data["AbstractText"])
-            if data.get("Answer"):
-                results.append(data["Answer"])
-            for topic in data.get("RelatedTopics", [])[:3]:
-                if isinstance(topic, dict) and topic.get("Text"):
-                    results.append(topic["Text"])
+            try:
+                resp = requests.get(
+                    "https://api.duckduckgo.com/",
+                    params={"q": query, "format": "json", "no_html": 1},
+                    timeout=6,
+                )
+                if resp.status_code == 200:
+                    data = resp.json()
+                    if data.get("AbstractText"):
+                        results.append(data["AbstractText"])
+                    if data.get("Answer"):
+                        results.append(data["Answer"])
+                    for topic in data.get("RelatedTopics", [])[:3]:
+                        if isinstance(topic, dict) and topic.get("Text"):
+                            results.append(topic["Text"])
+            except Exception:
+                pass
+
+            # 2. Fallback to Wikipedia summary if DuckDuckGo returned nothing
+            if not results:
+                try:
+                    wiki_url = f"https://en.wikipedia.org/api/rest_v1/page/summary/{requests.utils.quote(query)}"
+                    w_resp = requests.get(wiki_url, timeout=6)
+                    if w_resp.status_code == 200:
+                        w_data = w_resp.json()
+                        if w_data.get("extract"):
+                            results.append(w_data["extract"])
+                except Exception:
+                    pass
 
             if results:
-                result_text = "\n".join(results[:3])
+                result_text = "\n".join(results[:2])
                 return ToolResult(
                     tool_name="web_search",
                     success=True,
                     result=result_text,
-                    display_text=f"Here's what I found about \"{query}\":\n\n{result_text}",
+                    display_text=f"Here is what I found online about \"{query}\":\n\n{result_text}",
                 )
             else:
+                # If no direct online answers found, trigger local CPU/GPU generation
                 return ToolResult(
                     tool_name="web_search",
-                    success=True,
-                    result="",
-                    display_text=f"I searched for \"{query}\" but couldn't find a quick answer. You might want to check a browser for more detailed results.",
+                    success=False,
+                    display_text="",  # Seamlessly fall back to local model
                 )
 
-        except ImportError:
-            return ToolResult(
-                tool_name="web_search",
-                success=False,
-                display_text="I'd love to search the web for you, but the `requests` library isn't installed. Run: pip install requests",
-            )
         except Exception as e:
+            # On connection drops or timeouts, cleanly trigger local CPU/GPU
             return ToolResult(
                 tool_name="web_search",
                 success=False,
                 error=str(e),
-                display_text=f"I tried searching but hit an error: {e}",
+                display_text="",
             )
 
     def read_file(self, message: str) -> ToolResult:

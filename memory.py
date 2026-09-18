@@ -93,6 +93,13 @@ FACT_PATTERNS: list[tuple[str, str, str]] = [
     (r"i'?m (\d{1,2}) years old", "personal", "age"),
     (r"i (?:live|stay) in ([\w\s]+)", "personal", "location"),
     (r"i work (?:at|for|in) ([\w\s]+)", "personal", "workplace"),
+    (r"i'?m eating ([\w\s]{1,30})", "activity", "current_food"),
+    (r"i ate ([\w\s]{1,30})", "activity", "recent_food"),
+    (r"my favorite food is ([\w\s]{1,30})", "preference", "favorite_food"),
+    (r"i (?:like to eat|love eating) ([\w\s]{1,30})", "preference", "favorite_food"),
+    (r"my dog'?s name is (\w+)", "personal", "dog_name"),
+    (r"my cat'?s name is (\w+)", "personal", "cat_name"),
+    (r"my pet'?s name is (\w+)", "personal", "pet_name"),
 ]
 
 
@@ -175,9 +182,8 @@ class MemoryManager:
         self._extract_facts(user_message)
         self._extract_topics(user_message)
 
-        # Auto-save every 5 messages
-        if self._message_count % 5 == 0:
-            self.save()
+        # Immediate disk persistence so conversations & facts are never lost
+        self.save()
 
     def record_emotion(self, emotion: str, intensity: float, message: str) -> None:
         """Record an emotional snapshot.

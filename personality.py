@@ -1,24 +1,10 @@
-# personality.py
-"""Dynamic personality and mood system for Parhi-GPT.
-
-Parhi has her own internal mood that evolves based on conversation
-flow. This module modulates response generation parameters (temperature,
-length, tone) to create a living, breathing personality that feels
-genuinely human.
-"""
 from __future__ import annotations
 
 import random
 import time
 from dataclasses import dataclass, field
-
 from emotion_engine import EmotionState
-
-
-# ---------------------------------------------------------------------------
 # Personality traits and mood definitions
-# ---------------------------------------------------------------------------
-
 @dataclass
 class MoodState:
     """Parhi's internal mood at a given moment.
@@ -41,7 +27,7 @@ class MoodState:
 
 # Mood transition rules: how user emotions affect Parhi's mood
 MOOD_TRANSITIONS: dict[str, dict[str, float]] = {
-    # user_emotion: {mood_dimension: delta}
+    # user_emotion: mood_dimension: delta
     "happy": {"energy": 0.1, "warmth": 0.1, "playfulness": 0.15, "confidence": 0.05},
     "loving": {"energy": 0.05, "warmth": 0.2, "playfulness": 0.1, "confidence": 0.1},
     "curious": {"energy": 0.1, "warmth": 0.0, "playfulness": -0.05, "confidence": 0.1},
@@ -65,66 +51,52 @@ MOOD_LABELS: list[tuple[str, dict[str, tuple[float, float]]]] = [
     ("calm", {"energy": (0.3, 0.6), "warmth": (0.4, 0.7)}),
 ]
 
-# Tone markers by mood
+# Tone markers by mood clean punctuation, no disruptive emojis
 TONE_MARKERS: dict[str, list[str]] = {
-    "excited": ["!", " 🎉", " ✨", " 🚀", "!!"],
-    "playful": [" 😄", " haha", " 😊", " ~"],
-    "cheerful": [" 😊", "!", " 💫"],
-    "thoughtful": ["...", " 🤔", " — "],
-    "gentle": [" 💕", " ❤️", " 🌸"],
-    "concerned": [" 💙", " 🤗"],
-    "apologetic": [" 😔", " 🙏"],
+    "excited": ["!", "."],
+    "playful": [".", "!"],
+    "cheerful": [".", "!"],
+    "thoughtful": ["...", "."],
+    "gentle": [".", "."],
+    "concerned": [".", "..."],
+    "apologetic": [".", "..."],
     "subdued": [".", "..."],
-    "calm": [".", " ☺️"],
+    "calm": [".", "."],
 }
 
-# Conversational fillers by mood (make responses feel more natural)
+# Conversational fillers by mood (clean, natural ChatGPT-style bridges)
 CONVERSATIONAL_FILLERS: dict[str, list[str]] = {
     "excited": [
-        "Oh my gosh, ", "Okay so, ", "Oh! ", "YES! ", "Ooh, ",
+        "Sure, ", "Alright, ",
     ],
     "playful": [
-        "Hehe, ", "Soo, ", "Well well well, ", "Hmm, ",
+        "Well, ", "Honestly, ",
     ],
     "cheerful": [
-        "Oh, ", "Hey! ", "So, ", "Alright! ",
+        "Hey, ", "Sure thing, ",
     ],
     "thoughtful": [
-        "Hmm, that's interesting... ", "Let me think about this... ",
-        "You know, ", "That's a great point... ",
+        "Hmm, ", "That's an interesting point. ",
     ],
     "gentle": [
-        "Hey, ", "You know, ", "Listen, ", "Sweetie, ",
+        "Sure, ", "I hear you. ",
     ],
     "concerned": [
-        "Hey, I notice that... ", "I want you to know... ",
-        "Listen, ", "I hear you... ",
+        "I see. ", "Understood. ",
     ],
     "apologetic": [
-        "Look, I... ", "I have to be honest, ", "I want to say... ",
+        "I apologize, ", "My mistake, ",
     ],
     "subdued": [
-        "Yeah... ", "I understand... ", "Okay... ",
+        "Understood. ", "Okay. ",
     ],
     "calm": [
-        "Well, ", "So, ", "Alright, ",
+        "Well, ", "Sure, ",
     ],
 }
-
-
-# ---------------------------------------------------------------------------
 # Personality engine
-# ---------------------------------------------------------------------------
-
 class PersonalityEngine:
-    """Dynamic personality system that modulates Parhi's behavior.
-
-    Maintains an internal mood state that evolves based on user emotions,
-    conversation duration, and contextual factors. Adjusts generation
-    parameters (temperature, top_k, max_tokens) and adds tone markers
-    to make responses feel naturally human.
-    """
-
+    # dynamic personality
     def __init__(self) -> None:
         self._mood = MoodState()
         self._exchanges_count = 0
@@ -210,30 +182,30 @@ class PersonalityEngine:
             Dict with 'temperature', 'top_k', and 'max_tokens' keys.
         """
         # Base parameters
-        temp = 0.8
+        temp = 0.75
         top_k = 30
-        max_tokens = 500
+        max_tokens = 120
 
         # Mood modulation
         mood = self._mood
 
         # Higher playfulness → higher temperature (more creative)
-        temp += (mood.playfulness - 0.5) * 0.2
+        temp += (mood.playfulness - 0.5) * 0.15
 
         # Lower confidence → lower temperature (more careful/focused)
-        temp -= (0.7 - mood.confidence) * 0.15
+        temp -= (0.7 - mood.confidence) * 0.1
 
-        # High energy → allow more tokens
-        max_tokens = int(max_tokens * (0.8 + mood.energy * 0.4))
+        # High energy → allow slightly more tokens
+        max_tokens = int(max_tokens * (0.85 + mood.energy * 0.3))
 
         # Low confidence → more top_k options considered (hedging)
         if mood.confidence < 0.4:
-            top_k = 50
+            top_k = 40
 
-        # Clamp
-        temp = max(0.5, min(1.0, temp))
-        top_k = max(10, min(100, top_k))
-        max_tokens = max(100, min(800, max_tokens))
+        # Clamp to concise conversational range
+        temp = max(0.5, min(0.95, temp))
+        top_k = max(10, min(80, top_k))
+        max_tokens = max(40, min(180, max_tokens))
 
         return {
             "temperature": round(temp, 2),
@@ -245,7 +217,7 @@ class PersonalityEngine:
         """Add subtle personality markers to a response.
 
         Occasionally adds tone markers, fillers, or adjusts phrasing
-        based on current mood. Applied sparingly to feel natural.
+        based on current mood. Applied sparingly to feel natural and grounded.
 
         Args:
             response: The raw response text.
@@ -255,25 +227,22 @@ class PersonalityEngine:
         """
         mood_label = self._mood.mood
 
-        # 30% chance of adding a conversational filler at the start
-        if random.random() < 0.3:
+        # 15% chance of subtle natural conversational bridge at start
+        if random.random() < 0.15:
             fillers = CONVERSATIONAL_FILLERS.get(mood_label, [])
             if fillers and not any(response.startswith(f) for f in fillers):
                 filler = random.choice(fillers)
-                # Don't double-capitalize
                 if response and response[0].isupper():
                     response = filler + response[0].lower() + response[1:]
                 else:
                     response = filler + response
 
-        # 20% chance of adding a tone marker at the end
-        if random.random() < 0.2:
+        # 10% chance of tone marker punctuation at end
+        if random.random() < 0.10:
             markers = TONE_MARKERS.get(mood_label, [])
             if markers:
                 marker = random.choice(markers)
-                # Don't add emoji if response already ends with one
-                if not (len(response) > 0 and ord(response[-1]) > 127):
-                    response = response.rstrip(".!") + marker
+                response = response.rstrip(".! ") + marker
 
         return response
 
