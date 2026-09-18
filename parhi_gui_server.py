@@ -259,25 +259,41 @@ def find_available_port(start_port: int = 8000) -> int:
     return start_port
 
 
-def launch_native_window(url: str):
-    """Open a sleek standalone borderless desktop app window."""
+def launch_native_window(url: str, fullscreen: bool = True, max_fps: bool = True):
+    """Open Microsoft Edge with zero delay, borderless fullscreen, and uncapped max FPS."""
     if sys.platform == "win32":
-        # Check for Microsoft Edge --app mode
+        # Check for Microsoft Edge first
         edge_paths = [
             os.path.expandvars(r"%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"),
             os.path.expandvars(r"%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"),
+            os.path.expandvars(r"%LocalAppData%\Microsoft\Edge\Application\msedge.exe"),
         ]
+        
+        edge_flags = [
+            f"--app={url}",
+            "--start-fullscreen",
+            "--disable-frame-rate-limit",        # Uncaps FPS beyond 60Hz (120Hz/144Hz/240Hz+)
+            "--disable-gpu-vsync",               # Disables VSync delay for maximum render rate
+            "--enable-gpu-rasterization",        # Offload 8K canvas shaders directly to GPU
+            "--enable-zero-copy",                # Fast GPU zero-copy raster buffers
+            "--ignore-gpu-blocklist",            # Force hardware acceleration
+            "--enable-accelerated-2d-canvas",    # High performance 2D canvas
+            "--enable-accelerated-video-decode", # Hardware accelerated video decode
+            "--disable-background-timer-throttling",
+            "--disable-backgrounding-occluded-windows",
+            "--disable-renderer-backgrounding",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "--fast-start",
+            "--hide-crash-restore-bubble",
+        ]
+
         for p in edge_paths:
             if os.path.exists(p):
-                subprocess.Popen([
-                    p,
-                    f"--app={url}",
-                    "--window-size=1380,880",
-                    "--window-position=50,50",
-                ])
+                subprocess.Popen([p] + edge_flags)
                 return
 
-        # Check for Chrome --app mode
+        # Check for Chrome with same high-performance flags
         chrome_paths = [
             os.path.expandvars(r"%ProgramFiles%\Google\Chrome\Application\chrome.exe"),
             os.path.expandvars(r"%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe"),
@@ -285,12 +301,7 @@ def launch_native_window(url: str):
         ]
         for p in chrome_paths:
             if os.path.exists(p):
-                subprocess.Popen([
-                    p,
-                    f"--app={url}",
-                    "--window-size=1380,880",
-                    "--window-position=50,50",
-                ])
+                subprocess.Popen([p] + edge_flags)
                 return
 
     # Fallback to default browser
@@ -304,9 +315,9 @@ def run_gui(host: str = "127.0.0.1", port: int = 8000, open_window: bool = True)
     url = f"http://{host}:{actual_port}"
 
     print(f"\n=======================================================")
-    print(f"  🧠 PARHI v3.0 — SYNAPTIC NEURAL INTERFACE")
+    print(f"  🧠 PARHI v3.5 — SYNAPTIC NEURAL INTERFACE")
     print(f"  Server URL: {url}")
-    print(f"  Mode: 8K Biological Brainbow Connectome")
+    print(f"  Mode: Edge Automation (Fullscreen | Uncapped Max FPS)")
     print(f"=======================================================\n")
 
     # Start uvicorn server in a separate background thread
@@ -321,12 +332,17 @@ def run_gui(host: str = "127.0.0.1", port: int = 8000, open_window: bool = True)
     server_thread = threading.Thread(target=server.run, daemon=True)
     server_thread.start()
 
-    # Wait brief moment for server to bind
-    time.sleep(0.8)
+    # Zero-delay server bind detection (fast socket check instead of fixed sleep)
+    for _ in range(40):
+        try:
+            with socket.create_connection((host, actual_port), timeout=0.04):
+                break
+        except OSError:
+            time.sleep(0.02)
 
     if open_window:
-        print(f"[🚀] Launching Parhi Standalone Desktop Window at {url}...")
-        launch_native_window(url)
+        print(f"[🚀] Launching Edge Automation Fullscreen (Max FPS) at {url}...")
+        launch_native_window(url, fullscreen=True, max_fps=True)
 
     # Keep alive until interrupt
     try:

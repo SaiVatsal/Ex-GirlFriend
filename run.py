@@ -41,9 +41,41 @@ def print_banner() -> None:
 """)
 
 
+def launch_edge_fullscreen(url: str = "http://127.0.0.1:8000") -> bool:
+    """Launch Microsoft Edge immediately without delay in full screen with uncapped max FPS."""
+    edge_paths = [
+        os.path.expandvars(r"%ProgramFiles(x86)%\Microsoft\Edge\Application\msedge.exe"),
+        os.path.expandvars(r"%ProgramFiles%\Microsoft\Edge\Application\msedge.exe"),
+        os.path.expandvars(r"%LocalAppData%\Microsoft\Edge\Application\msedge.exe"),
+    ]
+    edge_flags = [
+        f"--app={url}",
+        "--start-fullscreen",
+        "--disable-frame-rate-limit",        # Uncaps FPS beyond 60Hz (120Hz/144Hz/240Hz+)
+        "--disable-gpu-vsync",               # Zero VSync delay for maximum render rate
+        "--enable-gpu-rasterization",        # Offload 8K canvas shaders directly to GPU
+        "--enable-zero-copy",                # Fast GPU zero-copy raster buffers
+        "--ignore-gpu-blocklist",            # Force hardware acceleration
+        "--enable-accelerated-2d-canvas",    # High performance 2D canvas
+        "--enable-accelerated-video-decode", # Hardware accelerated video decode
+        "--disable-background-timer-throttling",
+        "--disable-backgrounding-occluded-windows",
+        "--disable-renderer-backgrounding",
+        "--no-first-run",
+        "--no-default-browser-check",
+        "--fast-start",
+        "--hide-crash-restore-bubble",
+    ]
+    for p in edge_paths:
+        if os.path.exists(p):
+            subprocess.Popen([p] + edge_flags)
+            return True
+    return False
+
+
 def display_menu() -> None:
     print(" Select which feature you want to run:\n")
-    print("  [1] 🌐 Neural Web GUI Interface     (8K Biological Brainbow HUD at port 8000)")
+    print("  [1] 🌐 Edge Browser Automation GUI  (Instant Fullscreen, Uncapped Max FPS, 8K HUD)")
     print("  [2] 💬 Interactive Terminal Chat    (Full CLI with Emotion, Voice & Hybrid Brain)")
     print("  [3] 🎮 Free Fire / Game Mode         (Autonomous Survivor, Anti-AFK, Auto-Loot)")
     print("  [4] 📁 Batch Folder Generator        (Create 100 friend folders on Desktop)")
@@ -56,14 +88,15 @@ def display_menu() -> None:
 
 
 def run_gui() -> None:
-    print("\n[🚀] Launching Parhi Neural Web GUI Interface...")
+    print("\n[🚀] Launching Parhi Neural Interface with Edge Browser Automation...")
+    print("     Mode: Fullscreen App | Uncapped Max FPS | Zero-Delay Start")
     print("     Server: http://127.0.0.1:8000")
-    print("     Press Ctrl+C to stop the GUI server.\n")
+    print("     Press Ctrl+C to return to menu.\n")
     try:
         from parhi_gui_server import run_gui as start_server
         start_server()
     except KeyboardInterrupt:
-        print("\n[✓] GUI server stopped.")
+        print("\n[✓] GUI stopped.")
     except Exception as e:
         print(f"[✗] Error starting GUI: {e}")
 
@@ -248,6 +281,9 @@ def main() -> None:
         mapping = {
             "gui": run_gui,
             "web": run_gui,
+            "edge": run_gui,
+            "browser": run_gui,
+            "fullscreen": run_gui,
             "chat": run_chat,
             "cli": run_chat,
             "game": run_game_mode,
