@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "parhi": {
+      "command": "python",
+      "args": [
+        "c:\\Ex-GirlFriend\\parhi_mcp_server.py"
+      ],
+      "env": {
+        "PYTHONIOENCODING": "utf-8",
+        "PARHI_MASTER_PIN": "1327"
+      }
+    }
+  }
+}

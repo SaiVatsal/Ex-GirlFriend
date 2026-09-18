@@ -228,6 +228,19 @@ class ParhiCLI:
             except ImportError as e:
                 print(f"[✗] System commands failed: {e}")
 
+        # Autonomous laptop control & Game automation
+        self.autonomous_controller = None
+        self.game_engine = None
+        if getattr(self.config, "enable_autonomous_control", True):
+            try:
+                from autonomous_controller import AutonomousController
+                from game_automation import GameAutomationEngine
+                self.autonomous_controller = AutonomousController(self.config)
+                self.game_engine = GameAutomationEngine()
+                print("[✓] Autonomous Laptop Control & Game Automation enabled")
+            except Exception as e:
+                print(f"[✗] Autonomous control failed: {e}")
+
         # Screen vision
         self.screen = None
         if self.config.enable_screen_vision:
@@ -369,7 +382,30 @@ class ParhiCLI:
         """
         self.last_thinking = ""
 
-        # --- Step 0: Check for system commands (JARVIS features) ---
+        # --- Step 0: Autonomous Laptop Control & Game Automation ---
+        if self.autonomous_controller:
+            lower_input = user_input.lower().strip()
+            # Free Fire & game automation
+            if any(p in lower_input for p in ("play free fire", "start free fire", "survivor mode", "game mode")):
+                if not self.autonomous_controller.is_authorized() and getattr(self.config, "master_access_pin", "1327") not in lower_input:
+                    resp = (
+                        "Security Verification Required: Starting autonomous Free Fire play ('With my access only').\n"
+                        "Please provide your Master PIN or authorization phrase to confirm."
+                    )
+                    return (resp, "") if return_thinking else resp
+                if self.game_engine:
+                    ok, msg = self.game_engine.start_game_routine()
+                    return (msg, "") if return_thinking else msg
+            elif any(p in lower_input for p in ("stop playing", "stop free fire", "exit game mode", "stop game", "stop survivor")):
+                if self.game_engine:
+                    msg = self.game_engine.stop_game_routine()
+                    return (msg, "") if return_thinking else msg
+
+            handled, auto_resp = self.autonomous_controller.process_command(user_input)
+            if handled and auto_resp:
+                return (auto_resp, "") if return_thinking else auto_resp
+
+        # --- Step 0.5: Check for system commands (JARVIS features) ---
         if self.sys_commands:
             # Check for confirmation of pending action
             confirm_result = self.sys_commands.check_confirmation(user_input)

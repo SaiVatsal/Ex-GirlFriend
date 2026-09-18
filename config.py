@@ -107,3 +107,14 @@ class ParhiConfig:
 
     # --- System Commands ---
     enable_system_commands: bool = True      # JARVIS-style system controls
+
+    # ======================================================================
+    # v3.5 Autonomous Control, MCP & Game Automation Features
+    # ======================================================================
+    master_access_pin: str = "1327"          # Master PIN for "With My Access Only" security
+    master_vocal_passphrase: str = "vatsal access granted"  # Vocal authorization passphrase
+    enable_autonomous_control: bool = True   # Laptop take-control / autopilot mode
+    enable_game_automation: bool = True      # Free Fire & emulator game survivor loop
+    game_automation_emulator: str = "auto"   # "auto", "bluestacks", "ldplayer", "memu"
+    enable_mcp_server: bool = True           # Model Context Protocol (MCP) server
+    mcp_server_port: int = 8765              # MCP SSE/HTTP port if running in network mode

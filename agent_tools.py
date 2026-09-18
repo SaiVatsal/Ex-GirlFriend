@@ -69,6 +69,20 @@ TOOL_TRIGGERS: dict[str, list[str]] = {
         "brightness up", "brightness down", "battery status",
         "wifi status", "play music", "ip address",
     ],
+    "take_control": [
+        "take control", "took control", "take over", "took over",
+        "control my laptop", "control my pc", "autonomous mode",
+        "autopilot on", "release control", "stop control",
+    ],
+    "batch_folders": [
+        "create 100 folders", "create folders", "make folders",
+        "generate folders", "folders of my friends", "folders with name",
+        "particular name of my friends",
+    ],
+    "game_automation": [
+        "play free fire", "start free fire", "stop playing",
+        "game mode", "survivor mode", "free fire",
+    ],
 }
 
 # Tool implementations n n
@@ -97,6 +111,9 @@ class AgentTools:
             "reminder": self.set_reminder,
             "calculator": self.calculate,
             "system_command": self.system_command,
+            "take_control": self.handle_take_control,
+            "batch_folders": self.handle_batch_folders,
+            "game_automation": self.handle_game_automation,
         }
 
         tool_func = tool_map.get(tool_name)
@@ -574,4 +591,79 @@ class AgentTools:
                 success=False,
                 error=str(e),
                 display_text=f"Failed to execute system command: {e}",
+            )
+
+    def handle_take_control(self, message: str) -> ToolResult:
+        """Handle autonomous laptop control and access verification."""
+        try:
+            from autonomous_controller import AutonomousController
+            if not hasattr(self, "_controller") or self._controller is None:
+                self._controller = AutonomousController()
+            handled, resp = self._controller.process_command(message)
+            return ToolResult(
+                tool_name="take_control",
+                success=handled,
+                display_text=resp or "Autonomous controller standby.",
+            )
+        except Exception as e:
+            return ToolResult(
+                tool_name="take_control",
+                success=False,
+                error=str(e),
+                display_text=f"Autonomous controller error: {e}",
+            )
+
+    def handle_batch_folders(self, message: str) -> ToolResult:
+        """Handle batch folder creation request."""
+        try:
+            from batch_executor import BatchExecutor
+            executor = BatchExecutor()
+            count, base_name, custom_names = executor.parse_folder_request(message)
+            res = executor.create_batch_folders(
+                count=count,
+                base_name=base_name,
+                custom_names=custom_names,
+            )
+            return ToolResult(
+                tool_name="batch_folders",
+                success=res.success,
+                result=str(len(res.items_created)),
+                display_text=res.display_text,
+            )
+        except Exception as e:
+            return ToolResult(
+                tool_name="batch_folders",
+                success=False,
+                error=str(e),
+                display_text=f"Batch folder error: {e}",
+            )
+
+    def handle_game_automation(self, message: str) -> ToolResult:
+        """Handle Free Fire / game automation."""
+        try:
+            from game_automation import GameAutomationEngine
+            if not hasattr(self, "_game_engine") or self._game_engine is None:
+                self._game_engine = GameAutomationEngine()
+
+            lower = message.lower()
+            if any(w in lower for w in ("stop", "cancel", "quit", "exit")):
+                msg = self._game_engine.stop_game_routine()
+                return ToolResult(
+                    tool_name="game_automation",
+                    success=True,
+                    display_text=msg,
+                )
+            else:
+                ok, msg = self._game_engine.start_game_routine()
+                return ToolResult(
+                    tool_name="game_automation",
+                    success=ok,
+                    display_text=msg,
+                )
+        except Exception as e:
+            return ToolResult(
+                tool_name="game_automation",
+                success=False,
+                error=str(e),
+                display_text=f"Game automation error: {e}",
             )
