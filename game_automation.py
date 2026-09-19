@@ -1,16 +1,3 @@
-# game_automation.py
-"""Game Automation and Anti-AFK Survivor Engine for Free Fire and Android Emulators.
-
-Simulates tactical gameplay, evasive maneuvers, and looting when the user
-steps away from their laptop ("when I went out, when I tell to play how it should do").
-
-Features:
-- Windows native DirectInput / SendInput via ctypes (zero external dependencies).
-- Multi-emulator auto-detection (BlueStacks, LDPlayer, MEmu, Nox, Free Fire).
-- Tactical anti-AFK survivor routine: WASD patrol, sprint, crouch, jump, heal, reload, loot.
-- Humanized timing jitter (80ms - 220ms key hold time, randomized intervals).
-- Hardware emergency stop: Moving the physical mouse or pressing ESC instantly aborts automation.
-"""
 from __future__ import annotations
 
 import ctypes
@@ -48,7 +35,7 @@ VK_CODES: dict[str, int] = {
     "tab": 0x09,
 }
 
-# Scan codes for DirectInput
+# Scan code
 SCAN_CODES: dict[str, int] = {
     "w": 0x11,
     "a": 0x1E,
@@ -67,8 +54,6 @@ SCAN_CODES: dict[str, int] = {
     "4": 0x05,
     "esc": 0x01,
 }
-
-# Win32 POINT structure for cursor tracking
 class POINT(ctypes.Structure):
     _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
 
@@ -86,8 +71,6 @@ class GameSessionStatus:
 
 
 class GameAutomationEngine:
-    """Controls Free Fire / game window with tactical survivor loops and safety aborts."""
-
     def __init__(self) -> None:
         self.status = GameSessionStatus()
         self._stop_event = threading.Event()
@@ -165,16 +148,10 @@ class GameAutomationEngine:
         scan = SCAN_CODES.get(key_name.lower(), 0)
         if not vk:
             return
-
-        # Key down (with scan code)
         self._user32.keybd_event(vk, scan, KEYEVENTF_SCANCODE, 0)
-        
-        # Humanized hold time
         jitter = random.uniform(-0.02, 0.04)
         actual_hold = max(0.04, hold_duration + jitter)
         time.sleep(actual_hold)
-
-        # Key up
         self._user32.keybd_event(vk, scan, KEYEVENTF_SCANCODE | KEYEVENTF_KEYUP, 0)
 
     def start_game_routine(self, max_duration_minutes: float = 30.0) -> tuple[bool, str]:
@@ -247,21 +224,15 @@ class GameAutomationEngine:
         ]
 
         while not self._stop_event.is_set():
-            # Check maximum duration timeout
             if (time.time() - self.status.start_time) > max_seconds:
                 self.status.stop_reason = "Max duration reached"
                 break
-
-            # Hardware Safety Check: User moved physical mouse
             curr_x, curr_y = self.get_mouse_pos()
             distance = ((curr_x - last_mouse_x) ** 2 + (curr_y - last_mouse_y) ** 2) ** 0.5
             if distance > 45:
-                # Human touched mouse — instantly release control!
                 self.status.stop_reason = "Manual mouse movement detected (emergency stop)"
                 break
             last_mouse_x, last_mouse_y = curr_x, curr_y
-
-            # Pick next tactical action
             action_name, action_func = random.choice(tactical_actions)
             self.status.last_action = action_name
             self.status.actions_performed += 1
@@ -270,8 +241,6 @@ class GameAutomationEngine:
                 action_func()
             except Exception:
                 pass
-
-            # Natural randomized pause between actions (200ms - 800ms)
             pause_time = random.uniform(0.25, 0.85)
             time.sleep(pause_time)
 
